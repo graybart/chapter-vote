@@ -1,0 +1,37 @@
+services:
+  app:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "3000:3000" # put Caddy/nginx in front; see README "Reverse proxy"
+    environment:
+      DATABASE_URL: postgres://chaptervote:${POSTGRES_PASSWORD:-chaptervote}@db:5432/chaptervote
+      AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET in .env}
+      AUTH_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL:-http://localhost:3000}
+      AUTH_TRUST_HOST: "true" # required behind a reverse proxy
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    ports:
+      # Localhost-only, so local dev tools (npm run dev / db:migrate /
+      # seed:admin) can reach the DB. Not exposed to the network.
+      - "127.0.0.1:5432:5432"
+    environment:
+      POSTGRES_USER: chaptervote
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-chaptervote}
+      POSTGRES_DB: chaptervote
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chaptervote"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pgdata:

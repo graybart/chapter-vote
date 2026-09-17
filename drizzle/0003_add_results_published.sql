@@ -1,0 +1,1 @@
+ALTER TABLE "contests" ADD COLUMN "results_published" boolean DEFAULT false NOT NULL;
