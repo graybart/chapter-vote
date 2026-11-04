@@ -47,7 +47,11 @@ export function CreateAccountForm() {
         </div>
       </div>
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button
+          type="submit"
+          disabled={pending}
+          disabledReason="Creating the account…"
+        >
           {pending ? "Creating…" : "Create account"}
         </Button>
         {message && <span className="text-sm">{message}</span>}
@@ -72,7 +76,13 @@ export function SetPasswordForm({ adminId }: { adminId: string }) {
         className="h-8 w-40 text-xs"
         required
       />
-      <Button type="submit" size="sm" variant="outline" disabled={pending}>
+      <Button
+        type="submit"
+        size="sm"
+        variant="outline"
+        disabled={pending}
+        disabledReason="Updating the password…"
+      >
         Set
       </Button>
       {message && (

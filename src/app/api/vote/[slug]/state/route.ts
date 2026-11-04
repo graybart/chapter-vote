@@ -1,16 +1,18 @@
 import { NextResponse } from "next/server";
-import { and, asc, eq, inArray } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as t from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
 /**
- * Voter-facing election state, polled every few seconds:
- * roster names for the drop-down, contests with candidates, and (when
- * ?memberId= is supplied) which contests that member has already voted in.
- * Individual rankings are never exposed, and neither are turnout counts —
- * only admins see who/how many have voted.
+ * Voter-facing state, polled every few seconds. The voting screen is a
+ * kiosk that follows the chair: exactly one contest runs at a time, so this
+ * returns just the roster (for the name drop-down) and whichever contest is
+ * open right now, if any.
+ *
+ * Never exposed: turnout counts, other members' ballots, rankings, or
+ * results — those live on the admin view and the projector.
  */
 export async function GET(
   req: Request,
@@ -27,7 +29,7 @@ export async function GET(
         orderBy: [asc(t.contests.sortOrder)],
         with: {
           candidates: { orderBy: [asc(t.candidates.sortOrder)] },
-          result: true,
+          exclusions: true,
         },
       },
     },
@@ -36,32 +38,41 @@ export async function GET(
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  const contestIds = election.contests.map((c) => c.id);
+  const open = election.contests.find((c) => c.status === "open") ?? null;
 
-  let myVotedContestIds: string[] = [];
-  let myExcludedContestIds = new Set<string>();
-  if (memberId && contestIds.length > 0) {
-    const mine = await db
-      .select({ contestId: t.ballots.contestId })
-      .from(t.ballots)
-      .where(
-        and(
-          inArray(t.ballots.contestId, contestIds),
-          eq(t.ballots.memberId, memberId),
-        ),
-      );
-    myVotedContestIds = mine.map((r) => r.contestId);
+  let activeContest = null;
+  if (open) {
+    const excluded = memberId
+      ? open.exclusions.some((x) => x.memberId === memberId)
+      : false;
 
-    const exclusions = await db
-      .select({ contestId: t.contestExclusions.contestId })
-      .from(t.contestExclusions)
-      .where(
-        and(
-          inArray(t.contestExclusions.contestId, contestIds),
-          eq(t.contestExclusions.memberId, memberId),
-        ),
-      );
-    myExcludedContestIds = new Set(exclusions.map((r) => r.contestId));
+    let voted = false;
+    if (memberId) {
+      const [ballot] = await db
+        .select({ id: t.ballots.id })
+        .from(t.ballots)
+        .where(
+          and(
+            eq(t.ballots.contestId, open.id),
+            eq(t.ballots.memberId, memberId),
+          ),
+        );
+      voted = !!ballot;
+    }
+
+    activeContest = {
+      id: open.id,
+      title: open.title,
+      description: open.description,
+      seats: open.seats,
+      method: open.method,
+      paused: open.paused,
+      excluded,
+      voted,
+      candidates: open.candidates
+        .filter((c) => !c.withdrawn)
+        .map((c) => ({ id: c.id, name: c.name })),
+    };
   }
 
   return NextResponse.json({
@@ -69,30 +80,6 @@ export async function GET(
     voters: election.voters
       .map((v) => ({ id: v.memberId, name: v.member.name }))
       .sort((a, b) => a.name.localeCompare(b.name)),
-    myVotedContestIds,
-    contests: election.contests.map((c) => {
-      const excluded = myExcludedContestIds.has(c.id);
-      // Winner is only revealed once the admin publishes results — and
-      // never to a member excluded from this contest.
-      const published = c.status === "closed" && c.resultsPublished && !excluded;
-      const winner =
-        published && c.result?.winnerCandidateId
-          ? (c.candidates.find((x) => x.id === c.result!.winnerCandidateId)
-              ?.name ?? null)
-          : null;
-      return {
-        id: c.id,
-        title: c.title,
-        description: c.description,
-        status: c.status,
-        excluded,
-        result: published
-          ? { isTie: c.result?.isTie ?? false, winnerName: winner }
-          : null,
-        candidates: c.candidates
-          .filter((cand) => !cand.withdrawn)
-          .map((cand) => ({ id: cand.id, name: cand.name })),
-      };
-    }),
+    activeContest,
   });
 }

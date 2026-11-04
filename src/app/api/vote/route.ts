@@ -46,6 +46,13 @@ export async function POST(req: Request) {
       { status: 409 },
     );
   }
+  // Paused mid-vote while the chair sorts something out.
+  if (contest.paused) {
+    return NextResponse.json(
+      { error: "Voting is paused. Please wait — it will resume shortly." },
+      { status: 409 },
+    );
+  }
 
   const [eligible] = await db
     .select()
@@ -107,6 +114,13 @@ export async function POST(req: Request) {
     const validationError = validateRankings(validIds, ranked);
     if (validationError) {
       return NextResponse.json({ error: validationError }, { status: 400 });
+    }
+    // Multiple-choice contests take exactly one selection.
+    if (contest.method === "single" && ranked.length > 1) {
+      return NextResponse.json(
+        { error: "This contest allows only one choice." },
+        { status: 400 },
+      );
     }
   }
 

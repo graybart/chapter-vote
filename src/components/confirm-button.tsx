@@ -15,7 +15,8 @@ export function ConfirmButton({
     <Button
       {...props}
       onClick={(e) => {
-        if (!confirm(confirmMessage)) {
+        // Belt and braces: a disabled button shouldn't submit or prompt.
+        if (props.disabled || !confirm(confirmMessage)) {
           e.preventDefault();
           return;
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,46 +12,57 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
+interface ActiveContest {
+  id: string;
+  title: string;
+  description: string | null;
+  seats: number;
+  method: "ranked" | "single";
+  paused: boolean;
+  excluded: boolean;
+  voted: boolean;
+  candidates: { id: string; name: string }[];
+}
+
 interface VoteState {
   election: { title: string; status: "draft" | "open" | "closed" };
   voters: { id: string; name: string }[];
-  myVotedContestIds: string[];
-  contests: {
-    id: string;
-    title: string;
-    description: string | null;
-    status: "pending" | "open" | "closed";
-    /** True when this member is barred from voting in this contest. */
-    excluded: boolean;
-    /** Present only when the admin has published this contest's results. */
-    result: { isTie: boolean; winnerName: string | null } | null;
-    candidates: { id: string; name: string }[];
-  }[];
+  activeContest: ActiveContest | null;
 }
 
 const POLL_MS = 3000;
 
+/**
+ * Kiosk-style voting screen, modelled on a handheld clicker: the voter logs
+ * in once at the start of the meeting and then this screen simply follows
+ * the chair. Exactly one contest is open at a time, so there's nothing to
+ * scroll and nothing to choose between — it's either "waiting for the next
+ * vote" or a live ballot.
+ */
 export function VoterApp({ slug }: { slug: string }) {
   const [state, setState] = useState<VoteState | null>(null);
-  const [memberId, setMemberId] = useState<string>("");
-  const [pendingId, setPendingId] = useState<string>("");
-  const [gtidInput, setGtidInput] = useState<string>("");
-  // GTID that passed server verification. Kept in sessionStorage (cleared
-  // when the tab closes), and re-checked server-side on every ballot.
+  const [memberId, setMemberId] = useState("");
+  const [pendingId, setPendingId] = useState("");
+  const [gtidInput, setGtidInput] = useState("");
+  // Verified GTID persists for the whole meeting (see lockIn/logout) so a
+  // locked phone or a reloaded tab doesn't mean re-authenticating.
   const [verifiedGtid, setVerifiedGtid] = useState<string | null>(null);
   const [verifying, setVerifying] = useState(false);
   const [verifyError, setVerifyError] = useState<string | null>(null);
-  const [drafts, setDrafts] = useState<Record<string, string[]>>({});
-  const [abstains, setAbstains] = useState<Record<string, boolean>>({});
-  const [submitting, setSubmitting] = useState<string | null>(null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Remember who I am across refreshes on this device.
+  const [ranking, setRanking] = useState<string[]>([]);
+  const [abstain, setAbstain] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  // Which contest the on-screen draft belongs to, so a new contest opening
+  // never inherits the previous one's selections.
+  const lastContestId = useRef<string | null>(null);
+
   useEffect(() => {
-    const saved = localStorage.getItem(`cv-member-${slug}`);
-    if (saved) setMemberId(saved);
-    const g = sessionStorage.getItem(`cv-gtid-${slug}`);
-    if (g !== null) setVerifiedGtid(g);
+    const savedMember = localStorage.getItem(`cv-member-${slug}`);
+    if (savedMember) setMemberId(savedMember);
+    const savedGtid = localStorage.getItem(`cv-gtid-${slug}`);
+    if (savedGtid !== null) setVerifiedGtid(savedGtid);
   }, [slug]);
 
   const refetch = useCallback(async () => {
@@ -62,7 +73,7 @@ export function VoterApp({ slug }: { slug: string }) {
       });
       if (res.ok) setState(await res.json());
     } catch {
-      // transient — next poll will retry
+      // transient — the next poll retries
     }
   }, [slug, memberId]);
 
@@ -72,14 +83,18 @@ export function VoterApp({ slug }: { slug: string }) {
     return () => clearInterval(id);
   }, [refetch]);
 
-  if (!state) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
-  }
+  // Clear the draft whenever the chair moves to a different contest.
+  const activeId = state?.activeContest?.id ?? null;
+  useEffect(() => {
+    if (lastContestId.current !== activeId) {
+      lastContestId.current = activeId;
+      setRanking([]);
+      setAbstain(false);
+      setError(null);
+    }
+  }, [activeId]);
 
-  const me = state.voters.find((v) => v.id === memberId);
-  const loggedIn = !!me && verifiedGtid !== null;
-
-  const verify = async (id: string, g: string): Promise<boolean> => {
+  const verify = async (id: string, g: string) => {
     setVerifying(true);
     setVerifyError(null);
     try {
@@ -93,7 +108,7 @@ export function VoterApp({ slug }: { slug: string }) {
         setVerifyError(data.error ?? "Verification failed.");
         return false;
       }
-      sessionStorage.setItem(`cv-gtid-${slug}`, g);
+      localStorage.setItem(`cv-gtid-${slug}`, g);
       setVerifiedGtid(g);
       return true;
     } catch {
@@ -117,93 +132,58 @@ export function VoterApp({ slug }: { slug: string }) {
     setGtidInput("");
     setVerifiedGtid(null);
     setVerifyError(null);
-    setDrafts({});
+    setRanking([]);
+    setAbstain(false);
     localStorage.removeItem(`cv-member-${slug}`);
-    sessionStorage.removeItem(`cv-gtid-${slug}`);
+    localStorage.removeItem(`cv-gtid-${slug}`);
   };
 
-  const rank = (contestId: string, candidateId: string) =>
-    setDrafts((d) => ({
-      ...d,
-      [contestId]: [...(d[contestId] ?? []), candidateId],
-    }));
+  const submit = async () => {
+    const contest = state?.activeContest;
+    if (!contest || !memberId) return;
+    const rankings = abstain ? [] : ranking;
+    if (!abstain && rankings.length === 0) return;
 
-  const unrank = (contestId: string, candidateId: string) =>
-    setDrafts((d) => ({
-      ...d,
-      [contestId]: (d[contestId] ?? []).filter((c) => c !== candidateId),
-    }));
-
-  const move = (contestId: string, index: number, dir: -1 | 1) =>
-    setDrafts((d) => {
-      const list = [...(d[contestId] ?? [])];
-      const j = index + dir;
-      if (j < 0 || j >= list.length) return d;
-      [list[index], list[j]] = [list[j], list[index]];
-      return { ...d, [contestId]: list };
-    });
-
-  const submit = async (contestId: string) => {
-    const abstaining = abstains[contestId] ?? false;
-    // An abstention is an empty ballot — recorded, but ranks no one.
-    const rankings = abstaining ? [] : (drafts[contestId] ?? []);
-    if ((!abstaining && rankings.length === 0) || !memberId) return;
-    setSubmitting(contestId);
-    setErrors((e) => ({ ...e, [contestId]: "" }));
+    setSubmitting(true);
+    setError(null);
     try {
       const res = await fetch("/api/vote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contestId,
+          contestId: contest.id,
           memberId,
           gtid: verifiedGtid ?? "",
           rankings,
         }),
       });
       const data = await res.json();
-      if (!res.ok) {
-        setErrors((e) => ({
-          ...e,
-          [contestId]: data.error ?? "Something went wrong.",
-        }));
-      } else {
-        // Don't keep the ranking around on a shared device — ballots are
-        // secret once cast.
-        setDrafts((d) => {
-          const { [contestId]: _, ...rest } = d;
-          return rest;
-        });
+      if (!res.ok) setError(data.error ?? "Something went wrong.");
+      else {
+        // Don't leave the selection on screen on a shared device.
+        setRanking([]);
+        setAbstain(false);
       }
       await refetch();
     } catch {
-      setErrors((e) => ({
-        ...e,
-        [contestId]: "Network error — please try again.",
-      }));
+      setError("Network error — please try again.");
     } finally {
-      setSubmitting(null);
+      setSubmitting(false);
     }
   };
 
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold">{state.election.title}</h1>
-        {loggedIn && state.election.status === "draft" && (
-          <p className="text-sm text-muted-foreground">
-            Voting hasn’t opened yet. This page will update automatically.
-          </p>
-        )}
-        {loggedIn && state.election.status === "closed" && (
-          <p className="text-sm text-muted-foreground">
-            This election is closed. Thanks for voting!
-          </p>
-        )}
-      </div>
+  if (!state) {
+    return <p className="text-sm text-muted-foreground">Loading…</p>;
+  }
 
-      {/* Identity: name → log in → GTID confirm, locked until "log out" */}
-      {!memberId ? (
+  const me = state.voters.find((v) => v.id === memberId);
+  const loggedIn = !!me && verifiedGtid !== null;
+  const contest = state.activeContest;
+
+  // ---- Not logged in yet: name, then GTID -------------------------------
+  if (!memberId) {
+    return (
+      <Shell title={state.election.title}>
         <Card>
           <CardHeader>
             <CardTitle>Log in</CardTitle>
@@ -213,7 +193,7 @@ export function VoterApp({ slug }: { slug: string }) {
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <select
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+              className="h-11 w-full rounded-md border border-input bg-background px-3 text-base"
               value={pendingId}
               onChange={(e) => {
                 setPendingId(e.target.value);
@@ -227,18 +207,27 @@ export function VoterApp({ slug }: { slug: string }) {
                 </option>
               ))}
             </select>
-            <Button disabled={!pendingId} onClick={() => lockIn(pendingId)}>
+            <Button
+              size="lg"
+              disabled={!pendingId}
+              disabledReason="Choose your name from the list above first."
+              onClick={() => lockIn(pendingId)}
+            >
               Log in
             </Button>
           </CardContent>
         </Card>
-      ) : me && verifiedGtid === null ? (
+      </Shell>
+    );
+  }
+
+  if (me && verifiedGtid === null) {
+    return (
+      <Shell title={state.election.title}>
         <Card>
           <CardHeader>
             <CardTitle>Hi, {me.name}</CardTitle>
-            <CardDescription>
-              Enter your GTID to confirm it’s you.
-            </CardDescription>
+            <CardDescription>Enter your GTID to confirm it’s you.</CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <Input
@@ -247,12 +236,15 @@ export function VoterApp({ slug }: { slug: string }) {
               placeholder="Your GTID (90XXXXXXX)"
               value={gtidInput}
               onChange={(e) => setGtidInput(e.target.value)}
+              className="h-11 text-base"
             />
             {verifyError && (
               <p className="text-sm text-destructive">{verifyError}</p>
             )}
             <Button
+              size="lg"
               disabled={verifying}
+              disabledReason="Checking your GTID…"
               onClick={() => verify(memberId, gtidInput)}
             >
               {verifying ? "Checking…" : "Confirm"}
@@ -265,223 +257,363 @@ export function VoterApp({ slug }: { slug: string }) {
             </button>
           </CardContent>
         </Card>
-      ) : me ? (
-        <div className="rounded-lg border bg-card px-4 py-3">
-          <div className="font-medium">You’re voting as {me.name}.</div>
-          <button
-            onClick={logout}
-            className="mt-0.5 text-xs text-muted-foreground underline hover:text-foreground"
-          >
-            Not {me.name}? Log out
-          </button>
-        </div>
+      </Shell>
+    );
+  }
+
+  if (!me) {
+    return (
+      <Shell title={state.election.title}>
+        <Card>
+          <CardContent className="flex flex-col gap-2 pt-6">
+            <p className="text-sm text-muted-foreground">
+              Your saved name is no longer on the voter list for this election.
+            </p>
+            <button
+              onClick={logout}
+              className="self-start text-xs text-muted-foreground underline hover:text-foreground"
+            >
+              Choose a different name
+            </button>
+          </CardContent>
+        </Card>
+      </Shell>
+    );
+  }
+
+  // ---- Logged in: follow the chair --------------------------------------
+  const waiting = !contest;
+
+  return (
+    <Shell title={state.election.title} who={me.name} onLogout={logout}>
+      {waiting ? (
+        <WaitingCard electionStatus={state.election.status} />
+      ) : contest.excluded ? (
+        <Card className="border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-950/40">
+          <CardHeader>
+            <CardTitle className="text-amber-900 dark:text-amber-100">{contest.title}</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-amber-900 dark:text-amber-100">
+              You’re not eligible to vote in this one. The screen will move on
+              by itself when the next vote opens.
+            </p>
+          </CardContent>
+        </Card>
+      ) : contest.paused && !contest.voted ? (
+        <Card className="border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-950/40">
+          <CardHeader>
+            <CardTitle className="text-amber-900 dark:text-amber-100">
+              Voting is paused
+            </CardTitle>
+            <CardDescription className="text-amber-800 dark:text-amber-200/90">
+              {contest.title}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-amber-900 dark:text-amber-100">
+              The person running the election has paused this vote for a
+              moment. Keep this page open — your ballot will come back by
+              itself when voting resumes.
+            </p>
+          </CardContent>
+        </Card>
+      ) : contest.voted ? (
+        <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-950/40">
+          <CardHeader>
+            <CardTitle className="text-emerald-900 dark:text-emerald-100">
+              ✓ Your vote is in
+            </CardTitle>
+            <CardDescription className="text-emerald-800 dark:text-emerald-200/90">
+              {contest.title}
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2">
+            <p className="text-sm text-emerald-900 dark:text-emerald-100">
+              Hold tight — this screen will show the next vote automatically.
+            </p>
+            <p className="text-xs text-emerald-800/80 dark:text-emerald-200/70">
+              Made a mistake? The person running the election can reset your
+              ballot so you can vote again. Note that this action is
+              irreversible and permanently discards your previous vote. No
+              one, including officers, is able to see individualized votes
+              for any contests voted on using this system.
+            </p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="rounded-lg border bg-card px-4 py-3">
-          <div className="text-sm text-muted-foreground">
-            Your saved name is no longer on the voter list.
-          </div>
-          <button
-            onClick={logout}
-            className="mt-0.5 text-xs text-muted-foreground underline hover:text-foreground"
-          >
-            Choose a different name
-          </button>
-        </div>
+        <Ballot
+          contest={contest}
+          ranking={ranking}
+          setRanking={setRanking}
+          abstain={abstain}
+          setAbstain={setAbstain}
+          submitting={submitting}
+          error={error}
+          onSubmit={submit}
+        />
       )}
+    </Shell>
+  );
+}
 
-      {/* Contests — only visible once logged in */}
-      {loggedIn &&
-        state.contests.map((contest) => {
-          const voted = state.myVotedContestIds.includes(contest.id);
-          const abstain = abstains[contest.id] ?? false;
-          const draft = drafts[contest.id] ?? [];
-          const rankedSet = new Set(draft);
-          const unranked = contest.candidates.filter(
-            (c) => !rankedSet.has(c.id),
-          );
-          const cname = (id: string) =>
-            contest.candidates.find((c) => c.id === id)?.name ?? "?";
+// ---------------------------------------------------------------------------
 
-          return (
-            <Card key={contest.id}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle>{contest.title}</CardTitle>
-                  <Badge
-                    variant={
-                      contest.status === "open"
-                        ? "success"
-                        : contest.status === "closed"
-                          ? "outline"
-                          : "secondary"
-                    }
-                  >
-                    {contest.status === "pending"
-                      ? "not open yet"
-                      : contest.status}
-                  </Badge>
-                </div>
-                {contest.description && (
-                  <CardDescription>{contest.description}</CardDescription>
-                )}
-              </CardHeader>
-              <CardContent>
-                {contest.excluded ? (
-                  contest.status !== "pending" && (
-                    <p className="text-sm text-muted-foreground">
-                      You’re not eligible to vote in this contest.
-                    </p>
-                  )
-                ) : contest.status === "closed" ? (
-                  <div className="flex flex-col gap-2">
-                    {voted ? (
-                      <p className="text-sm font-medium text-emerald-700">
-                        ✓ Your ballot was counted.
-                      </p>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        You didn’t cast a ballot in this contest.
-                      </p>
-                    )}
-                    {contest.result &&
-                      (contest.result.isTie ? (
-                        <p className="text-sm font-medium text-amber-700">
-                          Result: exact tie — to be resolved by the chair.
-                        </p>
-                      ) : contest.result.winnerName ? (
-                        <div className="rounded-md border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-900">
-                          🏆 Winner: {contest.result.winnerName}
-                        </div>
-                      ) : null)}
-                  </div>
-                ) : contest.status !== "open" ? null : voted ? (
-                  <div>
-                    <p className="text-sm font-medium text-emerald-700">
-                      ✓ Your ballot is in.
-                    </p>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Made a mistake? The person running the election can
-                      reset your ballot so you can vote again. Note that this
-                      action is irreversible and permanently discards your
-                      previous vote. No officer is able to see individualized
-                      votes for any contests voted on using this system.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-4">
-                    {/* Ranked so far */}
-                    {!abstain && (
-                    <div>
-                      <div className="mb-1 text-sm font-medium">
-                        Your ranking
-                      </div>
-                      {draft.length === 0 ? (
-                        <p className="text-sm text-muted-foreground">
-                          Tap candidates below in order of preference — first
-                          tap is your first choice. You don’t have to rank
-                          everyone.
-                        </p>
-                      ) : (
-                        <ol className="flex flex-col gap-1">
-                          {draft.map((cid, i) => (
-                            <li
-                              key={cid}
-                              className="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                            >
-                              <span className="w-5 font-bold">{i + 1}.</span>
-                              <span className="flex-1">{cname(cid)}</span>
-                              <button
-                                onClick={() => move(contest.id, i, -1)}
-                                disabled={i === 0}
-                                className="px-1 text-muted-foreground disabled:opacity-30"
-                                aria-label="Move up"
-                              >
-                                ↑
-                              </button>
-                              <button
-                                onClick={() => move(contest.id, i, 1)}
-                                disabled={i === draft.length - 1}
-                                className="px-1 text-muted-foreground disabled:opacity-30"
-                                aria-label="Move down"
-                              >
-                                ↓
-                              </button>
-                              <button
-                                onClick={() => unrank(contest.id, cid)}
-                                className="px-1 text-muted-foreground hover:text-destructive"
-                                aria-label="Remove"
-                              >
-                                ✕
-                              </button>
-                            </li>
-                          ))}
-                        </ol>
-                      )}
-                    </div>
-                    )}
-
-                    {/* Unranked candidates */}
-                    {!abstain && unranked.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {unranked.map((c) => (
-                          <Button
-                            key={c.id}
-                            variant="outline"
-                            size="sm"
-                            onClick={() => rank(contest.id, c.id)}
-                          >
-                            + {c.name}
-                          </Button>
-                        ))}
-                      </div>
-                    )}
-
-                    <label className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        className="h-4 w-4 accent-primary"
-                        checked={abstain}
-                        onChange={(e) =>
-                          setAbstains((a) => ({
-                            ...a,
-                            [contest.id]: e.target.checked,
-                          }))
-                        }
-                      />
-                      Abstain from this vote
-                    </label>
-                    {abstain && (
-                      <p className="text-xs text-muted-foreground">
-                        Your ballot will be recorded as an abstention — it
-                        won’t count toward any candidate.
-                      </p>
-                    )}
-
-                    {errors[contest.id] && (
-                      <p className="text-sm text-destructive">
-                        {errors[contest.id]}
-                      </p>
-                    )}
-
-                    <Button
-                      onClick={() => submit(contest.id)}
-                      disabled={
-                        (!abstain && draft.length === 0) ||
-                        submitting === contest.id
-                      }
-                    >
-                      {submitting === contest.id
-                        ? "Submitting…"
-                        : abstain
-                          ? "Submit abstention"
-                          : "Submit ballot"}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          );
-        })}
+function Shell({
+  title,
+  who,
+  onLogout,
+  children,
+}: {
+  title: string;
+  who?: string;
+  onLogout?: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-4">
+      <div>
+        <h1 className="text-xl font-bold">{title}</h1>
+        {who && (
+          <div className="mt-0.5 text-sm text-muted-foreground">
+            Voting as <span className="font-medium">{who}</span>
+            {onLogout && (
+              <>
+                {" · "}
+                <button
+                  onClick={onLogout}
+                  className="underline hover:text-foreground"
+                >
+                  Not {who}? Log out
+                </button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      {children}
     </div>
+  );
+}
+
+function WaitingCard({
+  electionStatus,
+}: {
+  electionStatus: "draft" | "open" | "closed";
+}) {
+  const closed = electionStatus === "closed";
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
+        {!closed && (
+          <span className="flex h-3 w-3">
+            <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+          </span>
+        )}
+        <p className="text-lg font-semibold">
+          {closed ? "Voting has concluded" : "Waiting for the next vote"}
+        </p>
+        {!closed && (
+          <p className="max-w-xs text-sm text-muted-foreground">
+            Keep this page open. When the next vote opens, your ballot will
+            appear here automatically.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function Ballot({
+  contest,
+  ranking,
+  setRanking,
+  abstain,
+  setAbstain,
+  submitting,
+  error,
+  onSubmit,
+}: {
+  contest: ActiveContest;
+  ranking: string[];
+  setRanking: (f: (r: string[]) => string[]) => void;
+  abstain: boolean;
+  setAbstain: (v: boolean) => void;
+  submitting: boolean;
+  error: string | null;
+  onSubmit: () => void;
+}) {
+  const single = contest.method === "single";
+  const nameOf = (id: string) =>
+    contest.candidates.find((c) => c.id === id)?.name ?? "?";
+  const unranked = contest.candidates.filter((c) => !ranking.includes(c.id));
+  const move = (index: number, dir: -1 | 1) =>
+    setRanking((r) => {
+      const list = [...r];
+      const j = index + dir;
+      if (j < 0 || j >= list.length) return r;
+      [list[index], list[j]] = [list[j], list[index]];
+      return list;
+    });
+
+  return (
+    <Card className="border-2 border-primary/40">
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2">
+          <CardTitle className="text-2xl">{contest.title}</CardTitle>
+          <Badge variant="success">voting open</Badge>
+        </div>
+        <CardDescription>
+          {contest.description}
+          {contest.description && " · "}
+          {single
+            ? contest.seats > 1
+              ? `Pick one option — the top ${contest.seats} are elected`
+              : "Pick one option"
+            : contest.seats > 1
+              ? `Rank in order of preference — the top ${contest.seats} are elected`
+              : "Rank in order of preference"}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4">
+        {single ? (
+          !abstain && (
+            <div className="flex flex-col gap-2">
+              {contest.candidates.map((c) => (
+                <label
+                  key={c.id}
+                  className={`flex cursor-pointer items-center gap-3 rounded-md border px-4 py-3 text-base ${
+                    ranking[0] === c.id
+                      ? "border-primary bg-accent"
+                      : "hover:bg-accent/50"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="choice"
+                    className="h-5 w-5 accent-primary"
+                    checked={ranking[0] === c.id}
+                    onChange={() => setRanking(() => [c.id])}
+                  />
+                  <span>{c.name}</span>
+                </label>
+              ))}
+            </div>
+          )
+        ) : (
+          !abstain && (
+            <>
+              <div>
+                <div className="mb-1 text-sm font-medium">Your ranking</div>
+                {ranking.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">
+                    Tap candidates below in order of preference — first tap is
+                    your first choice. You don’t have to rank everyone.
+                  </p>
+                ) : (
+                  <ol className="flex flex-col gap-1">
+                    {ranking.map((cid, i) => (
+                      <li
+                        key={cid}
+                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-base"
+                      >
+                        <span className="w-5 font-bold">{i + 1}.</span>
+                        <span className="flex-1">{nameOf(cid)}</span>
+                        <button
+                          onClick={() => move(i, -1)}
+                          disabled={i === 0}
+                          title={
+                            i === 0 ? "Already your first choice." : "Move up"
+                          }
+                          className="px-2 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                          aria-label="Move up"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          onClick={() => move(i, 1)}
+                          disabled={i === ranking.length - 1}
+                          title={
+                            i === ranking.length - 1
+                              ? "Already your last choice."
+                              : "Move down"
+                          }
+                          className="px-2 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                          aria-label="Move down"
+                        >
+                          ↓
+                        </button>
+                        <button
+                          onClick={() =>
+                            setRanking((r) => r.filter((x) => x !== cid))
+                          }
+                          className="px-2 text-muted-foreground hover:text-destructive"
+                          aria-label="Remove"
+                        >
+                          ✕
+                        </button>
+                      </li>
+                    ))}
+                  </ol>
+                )}
+              </div>
+              {unranked.length > 0 && (
+                <div className="flex flex-wrap gap-2">
+                  {unranked.map((c) => (
+                    <Button
+                      key={c.id}
+                      variant="outline"
+                      onClick={() => setRanking((r) => [...r, c.id])}
+                    >
+                      + {c.name}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </>
+          )
+        )}
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-primary"
+            checked={abstain}
+            onChange={(e) => setAbstain(e.target.checked)}
+          />
+          Abstain from this vote
+        </label>
+        {abstain && (
+          <p className="text-xs text-muted-foreground">
+            Your ballot will be recorded as an abstention — it won’t count
+            toward any {single ? "option" : "candidate"}.
+          </p>
+        )}
+
+        {error && <p className="text-sm text-destructive">{error}</p>}
+
+        <Button
+          size="lg"
+          onClick={onSubmit}
+          disabled={(!abstain && ranking.length === 0) || submitting}
+          disabledReason={
+            submitting
+              ? "Submitting your ballot…"
+              : single
+                ? "Pick one option above, or check “Abstain from this vote”."
+                : "Tap at least one candidate to rank them, or check “Abstain from this vote”."
+          }
+        >
+          {submitting
+            ? "Submitting…"
+            : abstain
+              ? "Submit abstention"
+              : single
+                ? "Submit vote"
+                : "Submit ballot"}
+        </Button>
+      </CardContent>
+    </Card>
   );
 }

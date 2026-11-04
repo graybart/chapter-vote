@@ -84,12 +84,14 @@ export default async function RosterPage() {
                 edits here never change old results.
               </CardDescription>
             </div>
-            {!readOnly && members.length > 0 && (
+            {!readOnly && (
               <form action={clearRoster}>
                 <ConfirmButton
                   type="submit"
                   variant="destructive"
                   size="sm"
+                  disabled={members.length === 0}
+                  disabledReason="The roster is already empty."
                   confirmMessage="Clear the whole roster? Members with election history are deactivated (history is kept); everyone else is deleted. You can then import just the people present today."
                 >
                   Clear roster

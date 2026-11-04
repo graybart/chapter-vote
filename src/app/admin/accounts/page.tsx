@@ -80,39 +80,51 @@ export default async function AccountsPage() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <SetPasswordForm adminId={a.id} />
-                  {!a.isOwner && (
-                    <>
-                      <form
-                        action={setAdminRole.bind(
-                          null,
-                          a.id,
-                          a.role === "admin" ? "observer" : "admin",
-                        )}
-                      >
-                        <Button type="submit" size="sm" variant="secondary">
-                          {a.role === "admin"
-                            ? "Make view-only"
-                            : "Make full admin"}
-                        </Button>
-                      </form>
-                      {referenced.has(a.id) ? (
-                        <span className="text-xs text-muted-foreground">
-                          in audit trail
-                        </span>
-                      ) : (
+                  {(() => {
+                    const roleReason = a.isOwner
+                      ? "The owner account always keeps full admin rights."
+                      : undefined;
+                    const deleteReason = a.isOwner
+                      ? "The owner account can't be deleted."
+                      : referenced.has(a.id)
+                        ? `${a.name} has created or closed an election, so the account is part of the audit trail. Make them view-only instead.`
+                        : undefined;
+                    return (
+                      <>
+                        <form
+                          action={setAdminRole.bind(
+                            null,
+                            a.id,
+                            a.role === "admin" ? "observer" : "admin",
+                          )}
+                        >
+                          <Button
+                            type="submit"
+                            size="sm"
+                            variant="secondary"
+                            disabled={!!roleReason}
+                            disabledReason={roleReason}
+                          >
+                            {a.role === "admin"
+                              ? "Make view-only"
+                              : "Make full admin"}
+                          </Button>
+                        </form>
                         <form action={deleteAdminAccount.bind(null, a.id)}>
                           <ConfirmButton
                             type="submit"
                             size="sm"
                             variant="destructive"
+                            disabled={!!deleteReason}
+                            disabledReason={deleteReason}
                             confirmMessage={`Delete the account for ${a.name} (${a.email})?`}
                           >
                             Delete
                           </ConfirmButton>
                         </form>
-                      )}
-                    </>
-                  )}
+                      </>
+                    );
+                  })()}
                 </div>
               </div>
             ))}

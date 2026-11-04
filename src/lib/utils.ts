@@ -12,6 +12,13 @@ export function normalizeGtid(value: unknown): string {
 
 const SLUG_ALPHABET = "abcdefghjkmnpqrstuvwxyz23456789"; // unambiguous
 
+/**
+ * NOTE: this is the ONLY use of randomness in the app, and it never touches
+ * a vote outcome — it just makes the voter link hard to guess. Vote counting
+ * (src/lib/irv.ts) is a pure function of the ballots, with no draws or
+ * coin-flips: an unbreakable tie is reported, never resolved by chance.
+ */
+
 export function generateSlug(length = 8): string {
   const bytes = crypto.getRandomValues(new Uint8Array(length));
   let out = "";

@@ -46,7 +46,11 @@ export function BulkAddForm() {
         existing name updates their GTID.
       </p>
       <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
+        <Button
+          type="submit"
+          disabled={pending}
+          disabledReason="Importing the roster…"
+        >
           {pending ? "Importing…" : "Import"}
         </Button>
         {message && <span className="text-sm">{message}</span>}

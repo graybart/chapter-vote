@@ -6,33 +6,66 @@ self-hosted Docker box — no Vercel-specific dependencies.
 
 ## How it works, night-of
 
+Think of it as a clicker system (Reply/TurningPoint) built in software:
+members hold their phones, the chair drives, and exactly one vote runs at a
+time.
+
 1. An admin signs in at `/admin`, creates an election (the active chapter
    roster is copied in as the voter list), and adds contests + candidates.
-2. Open the election, put the QR code on the projector.
-3. Brothers scan it, pick their name from the drop-down, confirm their GTID,
-   and rank candidates. One ballot per name per contest (DB-enforced).
-   GTIDs live on the roster (paste the names column and GTID column from a
-   spreadsheet), are compared digits-only on the server, and are never sent
-   to voter devices. Members without a GTID on file vote unverified — the
-   roster page flags them.
-4. The live results page shows turnout, a voted/hasn't-voted roster check,
-   and the round-by-round IRV tally, refreshing every 3 seconds.
-5. Close the contest — the official tally (including every elimination and
-   tie-break decision) is frozen for the record. Repeat per office.
+2. Open the election. Put the projector view on the screen and leave it
+   there — it follows along for the whole meeting without being touched.
+3. Members scan the QR code once, pick their name, confirm their GTID, and
+   stay logged in for the rest of the session. Their screen then just
+   follows the chair: "Waiting for the next vote", or a live ballot.
+4. Open a contest. Every phone switches to that ballot automatically and the
+   projector shows the contest name with live turnout. Only one contest can
+   be open at a time, so there's never any doubt what's being voted on.
+5. Close the contest when the numbers stop moving. Optionally hit "Show
+   result on projector" to announce the winner to the room.
+6. Repeat for each office. Close the election at the end.
 
 Ballot secrecy: ballots are linked to members only to enforce one-vote; no UI
-ever shows how anyone ranked.
+ever shows how anyone ranked. Turnout counts are shown to admins and on the
+projector, never on voters' own phones.
+
+**Projector view.** Each election page has an "Open projector view" link.
+Set it up once at the start of the meeting; it switches between three
+screens on its own — live turnout for the open contest, the winner when you
+publish one, and a waiting screen with the join QR code for latecomers. No
+login, counts and published winners only, and its URL uses the election's
+internal id rather than the voter slug so voters can't reach it from the
+link in their QR code.
+
+## Ballot types
+
+Each contest is independently either:
+
+- **Ranked choice** (default) — voters rank as many candidates as they like
+  and the instant-runoff rules below decide it.
+- **Multiple choice** — voters pick one option; most votes wins. For simple
+  motions and yes/no votes, without the overhead of ranking.
+
+Set it when creating the contest, or switch it on the contest while it's
+still in draft. Both types support multiple seats, abstentions, per-contest
+exclusions, and the same no-randomness tie handling.
 
 ## IRV rules
+
+**No randomness.** Counting is a pure function of the ballots — there is no
+coin-flip, lot, or seeded draw anywhere. If a tie cannot be broken by the
+rules below, the app declares no winner, names the tied candidates, and the
+chapter holds a revote. Re-running a count on the same ballots always gives
+the same answer.
+
 
 Majority = strictly more than half of continuing (non-exhausted) ballots.
 Each round the lowest first-choice candidate is eliminated and those ballots
 move to their next continuing choice. Explicit edge handling: exhausted
 ballots leave the denominator; trailing groups that mathematically can't
 catch up are batch-eliminated; last-place ties fall back to prior-round
-counts, then a deterministic seeded draw (recorded in the audit log); an
-exact tie among all remaining candidates is reported to the chair instead of
-auto-resolved. See `src/lib/irv.ts` and `src/lib/irv.test.ts`.
+counts; if that still can't separate them the count stops and reports the
+tie rather than guessing. An exact tie among all remaining candidates is
+likewise reported, never auto-resolved. See `src/lib/irv.ts` and `src/lib/irv.test.ts`.
 
 ## Quick start — run it on any computer (recommended)
 
@@ -45,9 +78,25 @@ The only requirement is [Docker Desktop](https://www.docker.com/products/docker-
 
 First run asks for your admin username/password (a plain username is fine —
 no email required), generates secrets, and builds
-the app (a few minutes). Every run after that starts in seconds. The script
-auto-detects your machine's wifi IP so the QR codes work from phones on the
-same network, and re-detects it each run (wifi IPs change between meetings).
+the app (a few minutes). Every run after that starts in seconds.
+
+The script works out which address phones should connect to and bakes it
+into the QR codes, re-checking each run since addresses change between
+meetings. It uses whichever interface carries the default route, so wifi,
+built-in Ethernet and USB-C/Thunderbolt adapters all work. If the machine
+has more than one address it lists them all and says which it picked.
+
+**Pinning the address.** When the laptop is on Ethernet but members are on
+wifi, the auto-detected address may not be the one phones can reach. Pin it:
+
+```bash
+./start.sh --host 192.168.1.50
+```
+
+That's remembered in `.env` (as `HOST_IP`), so later runs don't need the
+flag — delete that line to go back to auto-detection. To find the right
+address, check which network your phone is on and pick the matching one
+from the list the script prints.
 
 Stop with `docker compose down` — the database lives in a Docker volume, so
 rosters and past election results survive restarts and reboots. On Windows,

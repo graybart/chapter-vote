@@ -29,22 +29,87 @@ else
   die "Docker Compose not found (comes with Docker Desktop)."
 fi
 
-# --- Detect this machine's LAN IP (what phones on the wifi connect to) ------
-detect_ip() {
-  local ip=""
+# --- Work out the address phones should connect to --------------------------
+#
+# Pin it explicitly when the guess is wrong (e.g. the laptop is on Ethernet
+# and the members are on wifi, so there are two valid addresses):
+#
+#   ./start.sh --host 192.168.1.50
+#   HOST_IP=192.168.1.50 ./start.sh
+#
+# Order of preference: --host flag, HOST_IP env var, HOST_IP saved in .env.
+HOST_IP="${HOST_IP:-$(envget HOST_IP)}"
+HOST_PINNED_BY_FLAG=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --host) HOST_IP="${2:-}"; HOST_PINNED_BY_FLAG=1; shift 2 ;;
+    --host=*) HOST_IP="${1#*=}"; HOST_PINNED_BY_FLAG=1; shift ;;
+    -h|--help)
+      echo "Usage: ./start.sh [--host <ip-or-hostname>]"; exit 0 ;;
+    *) die "Unknown option: $1 (try --help)" ;;
+  esac
+done
+
+# Every usable IPv4 address on this machine, in preference order: whichever
+# interface carries the default route first, then everything else. Covers
+# wifi, built-in Ethernet and USB-C/Thunderbolt adapters alike — the old
+# version only looked at en0–en3 and missed Ethernet on many Macs.
+list_ips() {
+  local primary="" iface
   if [[ "$(uname)" == "Darwin" ]]; then
-    for iface in en0 en1 en2 en3; do
-      ip=$(ipconfig getifaddr "$iface" 2>/dev/null) && [[ -n "$ip" ]] && break
+    iface=$(route -n get default 2>/dev/null | awk '/interface:/{print $2}')
+    [[ -n "$iface" ]] && primary=$(ipconfig getifaddr "$iface" 2>/dev/null || true)
+    [[ -n "$primary" ]] && printf '%s\n' "$primary"
+    for i in $(ifconfig -l 2>/dev/null); do
+      case "$i" in lo*|utun*|awdl*|llw*|gif*|stf*|ap1) continue ;; esac
+      local a
+      a=$(ipconfig getifaddr "$i" 2>/dev/null || true)
+      [[ -n "$a" && "$a" != "$primary" ]] && printf '%s\n' "$a"
     done
   else
-    ip=$(hostname -I 2>/dev/null | awk '{print $1}')
+    iface=$(ip route show default 2>/dev/null | awk '/default/{print $5; exit}')
+    if [[ -n "$iface" ]]; then
+      primary=$(ip -4 -o addr show "$iface" 2>/dev/null |
+        awk '{print $4}' | cut -d/ -f1 | head -1)
+      [[ -n "$primary" ]] && printf '%s\n' "$primary"
+    fi
+    ip -4 -o addr show scope global 2>/dev/null |
+      awk '{print $4}' | cut -d/ -f1 |
+      while read -r a; do [[ "$a" != "$primary" ]] && printf '%s\n' "$a"; done
+    # Last resort if iproute2 isn't available.
+    if [[ -z "$primary" ]] && command -v hostname >/dev/null 2>&1; then
+      hostname -I 2>/dev/null | tr ' ' '\n' | grep -E '^[0-9]+\.' || true
+    fi
   fi
-  printf '%s' "$ip"
 }
-LAN_IP=$(detect_ip)
-if [[ -z "$LAN_IP" ]]; then
-  echo "Couldn't detect a LAN IP — falling back to localhost."
-  echo "(QR codes will only work on this machine. Connect to wifi and re-run to fix.)"
+
+# Plain read loop rather than `mapfile` — macOS still ships bash 3.2.
+IP_LIST=()
+while IFS= read -r line; do
+  [[ -n "$line" ]] && IP_LIST+=("$line")
+done < <(list_ips)
+
+if [[ -n "$HOST_IP" ]]; then
+  LAN_IP="$HOST_IP"
+  echo "Using the address you specified: $LAN_IP"
+  echo "(Remove the HOST_IP line from .env to go back to auto-detection.)"
+elif [[ ${#IP_LIST[@]} -gt 0 ]]; then
+  LAN_IP="${IP_LIST[0]}"
+  if [[ ${#IP_LIST[@]} -gt 1 ]]; then
+    echo "This machine has more than one network address:"
+    for a in "${IP_LIST[@]}"; do
+      if [[ "$a" == "$LAN_IP" ]]; then
+        echo "  $a   <- using this one (carries the default route)"
+      else
+        echo "  $a"
+      fi
+    done
+    echo "If phones can't reach it, re-run with: ./start.sh --host <the other address>"
+  fi
+else
+  echo "Couldn't detect a network address — falling back to localhost."
+  echo "(QR codes will only work on this machine. Connect to a network, or"
+  echo " re-run with: ./start.sh --host <your-ip>)"
   LAN_IP=localhost
 fi
 APP_URL="http://${LAN_IP}:3000"
@@ -72,6 +137,13 @@ if [[ ! -f .env ]]; then
     echo "SEED_ADMIN_ROLE=admin"
   } > .env
   echo "  .env created (secrets generated)."
+fi
+
+# Remember a host pinned with --host so later runs don't need the flag.
+if [[ -n "$HOST_PINNED_BY_FLAG" ]]; then
+  grep -v '^HOST_IP=' .env > .env.tmp 2>/dev/null || true
+  echo "HOST_IP=${HOST_IP}" >> .env.tmp
+  mv .env.tmp .env
 fi
 
 # --- Keep the app URL current (wifi IPs change between meetings) ------------

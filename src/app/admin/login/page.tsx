@@ -43,7 +43,11 @@ export default function LoginPage() {
             {errorMessage && (
               <p className="text-sm text-destructive">{errorMessage}</p>
             )}
-            <Button type="submit" disabled={isPending}>
+            <Button
+              type="submit"
+              disabled={isPending}
+              disabledReason="Signing you in…"
+            >
               {isPending ? "Signing in…" : "Sign in"}
             </Button>
           </form>

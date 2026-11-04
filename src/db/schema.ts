@@ -29,6 +29,11 @@ export const contestStatus = pgEnum("contest_status", [
   "closed", // tally frozen into contest_results
 ]);
 
+export const votingMethod = pgEnum("voting_method", [
+  "ranked", // instant-runoff (default)
+  "single", // plain multiple choice: pick one option
+]);
+
 export const adminRole = pgEnum("admin_role", [
   "admin", // full control (the "C" / election runner)
   "observer", // view-only: sees dashboard + live results, cannot change anything
@@ -130,6 +135,20 @@ export const contests = pgTable(
       .references(() => elections.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description"),
+    // Number of open seats. 1 = normal office; >1 = multi-seat (e.g.
+    // judicial board): seats are awarded one at a time — each winner is
+    // removed from all ballots and the count repeats (per the bylaws).
+    seats: integer("seats").notNull().default(1),
+    // How ballots are cast and counted. "ranked" = instant-runoff (default);
+    // "single" = plain multiple choice, for simple motions and yes/no votes
+    // that don't need the overhead of ranking.
+    method: votingMethod("method").notNull().default("ranked"),
+    // Temporarily stop accepting ballots without closing the contest, so
+    // the chair can fix a mistake mid-vote (reset a ballot, exclude a
+    // candidate who shouldn't have voted) with nothing moving underneath.
+    // Still the "open" contest: the projector and voters' screens keep
+    // following it, they just can't submit.
+    paused: boolean("paused").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     status: contestStatus("status").notNull().default("pending"),
     // When true (admin-controlled, off by default), voters can see the
@@ -266,9 +285,10 @@ export const contestResults = pgTable("contest_results", {
     .references(() => contests.id, { onDelete: "cascade" }),
   winnerCandidateId: uuid("winner_candidate_id").references(
     () => candidates.id,
-  ),
-  isTie: boolean("is_tie").notNull().default(false), // unresolvable final tie
-  rounds: jsonb("rounds").notNull(), // IrvRound[] from src/lib/irv.ts
+  ), // first-elected winner (kept for single-seat back-compat)
+  winners: jsonb("winners").$type<string[]>(), // candidate IDs in elected order
+  isTie: boolean("is_tie").notNull().default(false), // unresolvable tie (a seat couldn't be filled)
+  rounds: jsonb("rounds").notNull(), // SeatResult[] from src/lib/irv.ts (older rows: IrvRound[])
   ballotCount: integer("ballot_count").notNull(),
   talliedAt: timestamp("tallied_at", { withTimezone: true })
     .notNull()

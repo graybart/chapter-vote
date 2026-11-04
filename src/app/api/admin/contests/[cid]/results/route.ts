@@ -3,7 +3,12 @@ import { asc, eq } from "drizzle-orm";
 import { auth } from "@/auth";
 import { db } from "@/db";
 import * as t from "@/db/schema";
-import { tallyIrv, type IrvResult } from "@/lib/irv";
+import {
+  tallyIrvMultiSeat,
+  tallyPlurality,
+  type MultiSeatIrvResult,
+  type SeatResult,
+} from "@/lib/irv";
 
 export const dynamic = "force-dynamic";
 
@@ -55,22 +60,47 @@ export async function GET(
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
-  let result: IrvResult;
+  let result: MultiSeatIrvResult;
   if (contest.status === "closed" && contest.result) {
+    // Frozen official tally. Rows written before multi-seat support stored
+    // a bare IrvRound[]; wrap those as a single seat so the shape is uniform.
+    const stored = contest.result.rounds as unknown;
+    const seatResults: SeatResult[] =
+      Array.isArray(stored) && stored.length > 0 && "seat" in stored[0]
+        ? (stored as SeatResult[])
+        : [
+            {
+              seat: 1,
+              winner: contest.result.winnerCandidateId,
+              isTie: contest.result.isTie,
+              tiedCandidates: [],
+              rounds: (stored ?? []) as SeatResult["rounds"],
+            },
+          ];
     result = {
-      winner: contest.result.winnerCandidateId,
+      seats: contest.seats,
+      winners:
+        contest.result.winners ??
+        (contest.result.winnerCandidateId
+          ? [contest.result.winnerCandidateId]
+          : []),
       isTie: contest.result.isTie,
-      rounds: contest.result.rounds as IrvResult["rounds"],
+      tiedCandidates:
+        seatResults[seatResults.length - 1]?.tiedCandidates ?? [],
+      seatResults,
       totalBallots: contest.result.ballotCount,
     };
   } else {
-    result = tallyIrv(
-      contest.candidates.filter((c) => !c.withdrawn).map((c) => c.id),
-      ballotRows.map((b) => ({
-        rankings: b.rankings.map((r) => r.candidateId),
-      })),
-      cid,
-    );
+    const liveCandidates = contest.candidates
+      .filter((c) => !c.withdrawn)
+      .map((c) => c.id);
+    const liveBallots = ballotRows.map((b) => ({
+      rankings: b.rankings.map((r) => r.candidateId),
+    }));
+    result =
+      contest.method === "single"
+        ? tallyPlurality(liveCandidates, liveBallots, contest.seats)
+        : tallyIrvMultiSeat(liveCandidates, liveBallots, contest.seats);
   }
 
   return NextResponse.json({
@@ -79,6 +109,10 @@ export async function GET(
       id: contest.id,
       title: contest.title,
       status: contest.status,
+      seats: contest.seats,
+      method: contest.method,
+      paused: contest.paused,
+      resultsPublished: contest.resultsPublished,
       electionStatus: contest.election.status,
     },
     candidates: contest.candidates.map((c) => ({

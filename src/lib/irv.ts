@@ -13,11 +13,16 @@
  *      2. Unique lowest candidate.
  *      3. Tie for last → backward tie-break: fewest votes in the most recent
  *         prior round where the tied candidates differed.
- *      4. Still tied → deterministic pseudo-random draw seeded from the
- *         contest ID + round number, recorded in the audit log.
- *  - If ALL remaining candidates are exactly tied, the tally reports
- *    `winner: null, isTie: true` for the chair to resolve (per Robert's
- *    Rules) rather than the app silently picking.
+ *
+ * NO RANDOMNESS. There is deliberately no coin-flip, lot, or seeded draw
+ * anywhere in this file. If a tie cannot be broken by the rules above, the
+ * tally refuses to pick a winner and reports `winner: null, isTie: true`
+ * with the tied candidates named, so the chapter can be told and a revote
+ * held. Every result this module produces is a pure function of the ballots.
+ *
+ * `tallyIrvMultiSeat` (below) layers the bylaws' multi-seat rule on top:
+ * seats are awarded one at a time, each winner removed from all ballots
+ * before the next count. No runoff is ever required.
  */
 
 export interface IrvBallot {
@@ -28,8 +33,7 @@ export interface IrvBallot {
 export type EliminationReason =
   | "lowest" // unique lowest first-choice count
   | "batch" // trailing group mathematically eliminated together
-  | "prior_round_tiebreak" // lost a backward tie-break
-  | "random_tiebreak"; // seeded deterministic draw (logged)
+  | "prior_round_tiebreak"; // lost a backward tie-break
 
 export interface IrvRound {
   round: number;
@@ -44,18 +48,34 @@ export interface IrvRound {
 export interface IrvResult {
   winner: string | null; // candidateId, or null (no ballots / unresolvable tie)
   isTie: boolean;
+  /**
+   * When `isTie`, the candidates the count could not separate. These are
+   * exactly the people a revote should be held between.
+   */
+  tiedCandidates: string[];
   rounds: IrvRound[];
   totalBallots: number;
 }
 
-/** FNV-1a 32-bit string hash — deterministic tie-break source. */
-function hashString(s: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < s.length; i++) {
-    h ^= s.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
+/** One seat's tally in a (possibly multi-seat) contest. */
+export interface SeatResult {
+  seat: number; // 1-based
+  winner: string | null;
+  isTie: boolean;
+  tiedCandidates: string[];
+  rounds: IrvRound[];
+}
+
+export interface MultiSeatIrvResult {
+  seats: number;
+  /** Candidate IDs in the order they were elected. */
+  winners: string[];
+  /** True if filling stopped early on an unresolvable tie. */
+  isTie: boolean;
+  /** Candidates the count couldn't separate for the first unfilled seat. */
+  tiedCandidates: string[];
+  seatResults: SeatResult[];
+  totalBallots: number;
 }
 
 /**
@@ -85,13 +105,18 @@ export function validateRankings(
 export function tallyIrv(
   candidateIds: string[],
   ballots: IrvBallot[],
-  seed: string,
 ): IrvResult {
   const totalBallots = ballots.length;
   const rounds: IrvRound[] = [];
 
   if (candidateIds.length === 0) {
-    return { winner: null, isTie: false, rounds, totalBallots };
+    return {
+      winner: null,
+      isTie: false,
+      tiedCandidates: [],
+      rounds,
+      totalBallots,
+    };
   }
 
   // Defensive sanitation: drop unknown candidates, keep first occurrence of
@@ -138,7 +163,13 @@ export function tallyIrv(
 
     if (active === 0) {
       notes.push("No active ballots remain; no winner can be determined.");
-      return { winner: null, isTie: false, rounds, totalBallots };
+      return {
+        winner: null,
+        isTie: false,
+        tiedCandidates: [],
+        rounds,
+        totalBallots,
+      };
     }
 
     // Sort ascending by count, then by ID for a stable order.
@@ -155,21 +186,42 @@ export function tallyIrv(
       notes.push(
         `Winner: majority of continuing ballots (${max} of ${active}).`,
       );
-      return { winner, isTie: false, rounds, totalBallots };
+      return {
+        winner,
+        isTie: false,
+        tiedCandidates: [],
+        rounds,
+        totalBallots,
+      };
     }
 
     // Only one candidate left without a majority is impossible when
     // active > 0 (they hold every active ballot); guard regardless.
     if (continuing.size === 1) {
-      return { winner: entries[0][0], isTie: false, rounds, totalBallots };
+      return {
+        winner: entries[0][0],
+        isTie: false,
+        tiedCandidates: [],
+        rounds,
+        totalBallots,
+      };
     }
 
-    // All remaining candidates exactly tied — IRV cannot resolve this.
+    // All remaining candidates exactly tied — IRV cannot resolve this, and
+    // this module never breaks a tie by chance.
     if (min === max) {
+      const tiedAll = entries.map((e) => e[0]).sort();
       notes.push(
-        "All remaining candidates are exactly tied; result referred to the chair.",
+        `All ${tiedAll.length} remaining candidates are exactly tied at ` +
+          `${max} vote(s). The count cannot resolve this — a revote is required.`,
       );
-      return { winner: null, isTie: true, rounds, totalBallots };
+      return {
+        winner: null,
+        isTie: true,
+        tiedCandidates: tiedAll,
+        rounds,
+        totalBallots,
+      };
     }
 
     // 1) Batch elimination: largest prefix whose combined total is strictly
@@ -230,15 +282,202 @@ export function tallyIrv(
       continue;
     }
 
-    // 4) Deterministic seeded draw among the still-tied candidates.
+    // 4) Still tied for last after every prior round was consulted. There is
+    //    deliberately no draw or coin-flip here: eliminating one of these
+    //    candidates by chance could change who wins, so the count stops and
+    //    the chapter holds a revote.
     tied.sort();
-    const idx = hashString(`${seed}:round${roundNum}`) % tied.length;
-    const loser = tied[idx];
-    continuing.delete(loser);
-    round.eliminated.push({ candidateId: loser, reason: "random_tiebreak" });
     notes.push(
-      `Tie for last place unresolved by prior rounds; deterministic seeded ` +
-        `draw eliminated 1 of ${tied.length} (seed "${seed}", round ${roundNum}).`,
+      `Tie for last place between ${tied.length} candidates at ${min} vote(s), ` +
+        `not separated by any earlier round. The count cannot continue without ` +
+        `breaking the tie by chance, so no winner is declared — a revote is required.`,
     );
+    return {
+      winner: null,
+      isTie: true,
+      tiedCandidates: tied,
+      rounds,
+      totalBallots,
+    };
   }
+}
+
+/**
+ * Multi-seat (sequential) IRV, per the bylaws for Judicial Board elections:
+ * "All open seats shall be filled in a single election, with seats awarded
+ * one at a time: after each candidate is elected, that candidate shall be
+ * removed from all ballots and the count repeated until every open seat is
+ * filled."
+ *
+ * Each seat is a full IRV count over the candidates not yet elected, using
+ * every ballot's highest-ranked *remaining* choice — so a voter whose first
+ * choice already won still has their ballot count fully toward the next
+ * seat. No runoff is ever required.
+ *
+ * Filling stops at the first seat whose count ends in an unresolvable tie
+ * (`isTie: true`, with the tied candidates named) rather than breaking it by
+ * chance — the chapter is told and holds a revote. Seats already awarded
+ * before that point stand, since they were decided outright.
+ * `seats: 1` is exactly ordinary IRV.
+ */
+export function tallyIrvMultiSeat(
+  candidateIds: string[],
+  ballots: IrvBallot[],
+  seats = 1,
+): MultiSeatIrvResult {
+  const totalBallots = ballots.length;
+  // Can't elect more people than there are candidates.
+  const targetSeats = Math.max(1, Math.min(seats, candidateIds.length));
+
+  const winners: string[] = [];
+  const seatResults: SeatResult[] = [];
+  let remaining = [...candidateIds];
+  let isTie = false;
+  let tiedCandidates: string[] = [];
+
+  for (let seat = 1; seat <= targetSeats; seat++) {
+    if (remaining.length === 0) break;
+
+    const result = tallyIrv(remaining, ballots);
+    seatResults.push({
+      seat,
+      winner: result.winner,
+      isTie: result.isTie,
+      tiedCandidates: result.tiedCandidates,
+      rounds: result.rounds,
+    });
+
+    if (result.winner === null) {
+      // Unresolvable tie, or no ballots left to count — stop filling here.
+      isTie = result.isTie;
+      tiedCandidates = result.tiedCandidates;
+      break;
+    }
+
+    winners.push(result.winner);
+    // "that candidate shall be removed from all ballots and the count
+    // repeated" — dropping them from the candidate pool does exactly this,
+    // since each count only ever looks at continuing candidates.
+    remaining = remaining.filter((c) => c !== result.winner);
+  }
+
+  return {
+    seats: targetSeats,
+    winners,
+    isTie,
+    tiedCandidates,
+    seatResults,
+    totalBallots,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Plain multiple choice ("choose one")
+// ---------------------------------------------------------------------------
+
+/**
+ * Simple plurality count for contests that don't need ranking — a yes/no
+ * motion, or any ballot where each voter picks exactly one option.
+ *
+ * Ballots carry a single choice (`rankings: [choiceId]`); an empty ballot is
+ * an abstention and counts toward neither side. With `seats` > 1 the top
+ * `seats` options are elected.
+ *
+ * Same no-randomness guarantee as the IRV path: if a tie decides who takes
+ * the last available seat, no winner is declared for it — the tied options
+ * are named so the chapter can revote. An option with zero votes is never
+ * elected. The result is returned in the same shape as the IRV tally so the
+ * admin views can render either kind.
+ */
+export function tallyPlurality(
+  candidateIds: string[],
+  ballots: IrvBallot[],
+  seats = 1,
+): MultiSeatIrvResult {
+  const totalBallots = ballots.length;
+  const targetSeats = Math.max(1, Math.min(seats, candidateIds.length));
+
+  const valid = new Set(candidateIds);
+  const tally = new Map<string, number>();
+  for (const c of candidateIds) tally.set(c, 0);
+
+  let abstentions = 0;
+  for (const ballot of ballots) {
+    // Defensive: only the first valid choice counts, extras are ignored.
+    const choice = ballot.rankings.find((c) => valid.has(c));
+    if (choice === undefined) abstentions++;
+    else tally.set(choice, tally.get(choice)! + 1);
+  }
+  const votesCast = totalBallots - abstentions;
+
+  const notes: string[] = [];
+  const round: IrvRound = {
+    round: 1,
+    tally: Object.fromEntries(tally),
+    exhaustedBallots: abstentions,
+    eliminated: [],
+    notes,
+  };
+
+  const winners: string[] = [];
+  let isTie = false;
+  let tiedCandidates: string[] = [];
+
+  if (votesCast === 0) {
+    notes.push("No votes were cast; no winner can be determined.");
+  } else {
+    // Group options by vote count, highest first.
+    const byCount = new Map<number, string[]>();
+    for (const [candidate, n] of tally) {
+      if (!byCount.has(n)) byCount.set(n, []);
+      byCount.get(n)!.push(candidate);
+    }
+    const counts = [...byCount.keys()].sort((a, b) => b - a);
+
+    for (const n of counts) {
+      if (winners.length >= targetSeats) break;
+      if (n === 0) {
+        // Never seat an option nobody voted for.
+        notes.push(
+          `${targetSeats - winners.length} seat(s) had no remaining option with any votes.`,
+        );
+        break;
+      }
+      const group = byCount.get(n)!.sort();
+      if (winners.length + group.length <= targetSeats) {
+        winners.push(...group);
+        continue;
+      }
+      // More options tied at this count than seats left — can't split them
+      // without guessing.
+      isTie = true;
+      tiedCandidates = group;
+      notes.push(
+        `${group.length} options are tied at ${n} vote(s) for ` +
+          `${targetSeats - winners.length} remaining seat(s). The count cannot ` +
+          `separate them — a revote is required.`,
+      );
+      break;
+    }
+
+    if (winners.length > 0 && !isTie) {
+      const top = tally.get(winners[0])!;
+      notes.push(
+        `${top} of ${votesCast} vote(s) cast` +
+          (abstentions > 0 ? `, plus ${abstentions} abstention(s)` : "") +
+          `. ${top * 2 > votesCast ? "This is a majority of votes cast." : "Note: this is a plurality, not a majority of votes cast."}`,
+      );
+    }
+  }
+
+  return {
+    seats: targetSeats,
+    winners,
+    isTie,
+    tiedCandidates,
+    seatResults: [
+      { seat: 1, winner: winners[0] ?? null, isTie, tiedCandidates, rounds: [round] },
+    ],
+    totalBallots,
+  };
 }

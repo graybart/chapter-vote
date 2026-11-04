@@ -11,7 +11,9 @@ export default async function AdminLayout({
   const session = await auth();
 
   return (
-    <div className="min-h-screen">
+    /* force-light: the admin UI doesn't follow the device's dark mode, so
+       the officer running the meeting always sees the same screen. */
+    <div className="force-light min-h-screen bg-background text-foreground">
       <nav className="border-b bg-card">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-6">
