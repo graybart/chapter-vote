@@ -36,6 +36,39 @@ login, counts and published winners only, and its URL uses the election's
 internal id rather than the voter slug so voters can't reach it from the
 link in their QR code.
 
+## Look and feel
+
+The interface follows **Material Design 3** structure — tonal surface
+containers, the M3 shape and type scales, state layers, pill buttons —
+dressed in the Delta Chi palette from the Brand Standards guide:
+
+| M3 role | Brand colour | Used for |
+| --- | --- | --- |
+| primary | navy `#11375c` | main actions, focus, the voter's selected choice |
+| secondary | buff `#f1bd19` | accents, "pause", unsaved-change warnings |
+| tertiary | teal `#00a98e` | "voted" / success |
+| error | red `#ca3d31` | destructive actions only, so it keeps its weight |
+
+Neutrals are warmed slightly towards the brand's cream rather than being
+pure grey. Typography is Montserrat (the guide's own body webfont) with
+Source Serif 4 standing in for Chronicle on headings, since Chronicle,
+Gotham and Clavo are all commercial.
+
+Interactive components are built on [Base UI](https://base-ui.com)
+(`@base-ui/react`) — Dialog, Popover, Select, Tooltip, NumberField. That
+replaced a native `<dialog>`, a `<details>` dropdown and raw `<select>`s
+with properly accessible equivalents: focus traps, outside-click and
+Escape handling, keyboard listbox navigation, and tooltips that don't
+misfire when nested.
+
+**Build-time note:** `next/font` downloads Montserrat and Source Serif 4
+from Google Fonts *during the build*, then self-hosts them (so phones on
+the meeting wifi never need internet). The build itself does need network
+access. Docker caches the built image, so a meeting-night `./start.sh`
+with no code changes won't refetch — but if you rebuild after an edit on
+bad wifi, the build will fail on fonts. Build once on good wifi and you're
+set.
+
 ## Ballot types
 
 Each contest is independently either:

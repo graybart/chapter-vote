@@ -5,6 +5,7 @@ import { createAdminAccount, setAdminPassword } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select } from "@/components/ui/select";
 
 export function CreateAccountForm() {
   const [message, formAction, pending] = useActionState(
@@ -35,15 +36,14 @@ export function CreateAccountForm() {
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="acct-role">Permission level</Label>
-          <select
-            id="acct-role"
+          <Select
             name="role"
-            className="h-9 rounded-md border border-input bg-background px-3 text-sm"
             defaultValue="observer"
-          >
-            <option value="admin">Full admin — run elections</option>
-            <option value="observer">View-only — watch live results</option>
-          </select>
+            options={[
+              { value: "admin", label: "Full admin — run elections" },
+              { value: "observer", label: "View-only — watch live results" },
+            ]}
+          />
         </div>
       </div>
       <div className="flex items-center gap-3">
@@ -79,14 +79,14 @@ export function SetPasswordForm({ adminId }: { adminId: string }) {
       <Button
         type="submit"
         size="sm"
-        variant="outline"
+        variant="outlined"
         disabled={pending}
         disabledReason="Updating the password…"
       >
         Set
       </Button>
       {message && (
-        <span className="text-xs text-muted-foreground">{message}</span>
+        <span className="text-xs text-on-surface-variant">{message}</span>
       )}
     </form>
   );

@@ -25,6 +25,7 @@ import { ConfirmButton } from "@/components/confirm-button";
 import { ImportAttendees } from "./import-attendees";
 import { ContestActions } from "./contest-actions";
 import { InfoHint } from "@/components/info-hint";
+import { Select } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -120,8 +121,8 @@ export default async function ElectionPage({
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold">{election.title}</h1>
-          <p className="text-sm text-muted-foreground">
+          <h1 className="m3-headline">{election.title}</h1>
+          <p className="m3-body text-on-surface-variant">
             Created by {election.createdBy.name} ·{" "}
             {election.createdAt.toLocaleString()}
             {election.closedAt &&
@@ -191,7 +192,7 @@ export default async function ElectionPage({
                   <form action={reopenElection.bind(null, election.id)}>
                     <ConfirmButton
                       type="submit"
-                      variant="outline"
+                      variant="outlined"
                       disabled={election.status !== "closed"}
                       disabledReason={
                         election.status === "open"
@@ -206,7 +207,7 @@ export default async function ElectionPage({
                   <form action={revertElectionToDraft.bind(null, election.id)}>
                     <ConfirmButton
                       type="submit"
-                      variant="outline"
+                      variant="outlined"
                       disabled={!!revertReason}
                       disabledReason={revertReason}
                       confirmMessage="Revert this election to draft? The voter link/QR stops working and every contest returns to draft."
@@ -244,8 +245,8 @@ export default async function ElectionPage({
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={qrDataUrl} alt="Voter QR code" className="h-40 w-40" />
           <div className="flex flex-col gap-1">
-            <code className="rounded bg-muted px-2 py-1 text-sm">{voteUrl}</code>
-            <span className="text-xs text-muted-foreground">
+            <code className="rounded bg-surface-highest px-2 py-1 text-sm">{voteUrl}</code>
+            <span className="text-xs text-on-surface-variant">
               Active only while the election is open.
             </span>
           </div>
@@ -267,11 +268,11 @@ export default async function ElectionPage({
         </CardHeader>
         <CardContent className="flex flex-wrap items-center gap-3">
           <a href={displayUrl} target="_blank" rel="noreferrer">
-            <Button variant="secondary" size="sm">
+            <Button variant="tonal" size="sm">
               Open projector view ↗
             </Button>
           </a>
-          <code className="rounded bg-muted px-2 py-1 text-xs">
+          <code className="rounded bg-surface-highest px-2 py-1 text-xs">
             {displayUrl}
           </code>
         </CardContent>
@@ -311,7 +312,7 @@ export default async function ElectionPage({
                   <Badge variant="secondary">
                     {c.method === "single" ? "multiple choice" : "ranked"}
                   </Badge>
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-on-surface-variant">
                     {ballotCount.get(c.id) ?? 0} /{" "}
                     {election.voters.length - c.exclusions.length} ballots
                   </span>
@@ -347,7 +348,7 @@ export default async function ElectionPage({
                           Results for who is tied.
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">
+                        <span className="text-on-surface-variant">
                           No winner — no ballots were cast
                         </span>
                       );
@@ -365,7 +366,7 @@ export default async function ElectionPage({
                       </span>
                     );
                   })()}
-                  <span className="text-xs text-muted-foreground">
+                  <span className="text-xs text-on-surface-variant">
                     ({c.resultsPublished
                       ? "✓ on the projector"
                       : "not on the projector"})
@@ -395,7 +396,7 @@ export default async function ElectionPage({
                                 ? `Withdraw ${cand.name}. Ballots already cast skip over them.`
                                 : `Remove ${cand.name}`
                           }
-                          className="ml-1 text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                          className="ml-1 text-on-surface-variant hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
                           aria-label={`Remove ${cand.name}`}
                         >
                           ×
@@ -405,7 +406,7 @@ export default async function ElectionPage({
                   </span>
                 ))}
                 {c.candidates.length === 0 && (
-                  <span className="text-sm text-muted-foreground">
+                  <span className="text-sm text-on-surface-variant">
                     No candidates yet.
                   </span>
                 )}
@@ -432,7 +433,7 @@ export default async function ElectionPage({
                     <Button
                       type="submit"
                       size="sm"
-                      variant="secondary"
+                      variant="tonal"
                       disabled={c.status === "closed"}
                       disabledReason="This contest is closed — its candidate list is part of the final record."
                     >
@@ -446,11 +447,11 @@ export default async function ElectionPage({
               {(c.exclusions.length > 0 || !readOnly) && (
                 <div className="mt-3 border-t pt-3">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
-                    <span className="text-xs font-medium text-muted-foreground">
+                    <span className="text-xs font-medium text-on-surface-variant">
                       Not eligible to vote:
                     </span>
                     {c.exclusions.length === 0 && (
-                      <span className="text-xs text-muted-foreground">
+                      <span className="text-xs text-on-surface-variant">
                         no one excluded
                       </span>
                     )}
@@ -472,7 +473,7 @@ export default async function ElectionPage({
                                   ? "This contest is closed — its eligibility list is part of the final record."
                                   : `Allow ${x.member.name} to vote again`
                               }
-                              className="ml-1 text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                              className="ml-1 text-on-surface-variant hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
                               aria-label={`Allow ${x.member.name} to vote`}
                             >
                               ×
@@ -487,22 +488,18 @@ export default async function ElectionPage({
                       action={excludeVoter.bind(null, c.id)}
                       className="mt-2 flex gap-2"
                     >
-                      <select
+                      <Select
                         name="memberId"
-                        className="h-8 rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                         required
-                        defaultValue=""
+                        placeholder="Exclude a voter (e.g. a candidate)…"
                         disabled={c.status === "closed"}
+                        className="h-10 min-w-64"
                         title={
                           c.status === "closed"
                             ? "This contest is closed — its eligibility list is part of the final record."
                             : undefined
                         }
-                      >
-                        <option value="" disabled>
-                          Exclude a voter (e.g. a candidate)…
-                        </option>
-                        {sortedVoters
+                        options={sortedVoters
                           .filter(
                             (v) =>
                               !c.exclusions.some(
@@ -510,16 +507,15 @@ export default async function ElectionPage({
                               ) &&
                               !votedByContest.get(c.id)?.has(v.memberId),
                           )
-                          .map((v) => (
-                            <option key={v.memberId} value={v.memberId}>
-                              {v.member.name}
-                            </option>
-                          ))}
-                      </select>
+                          .map((v) => ({
+                            value: v.memberId,
+                            label: v.member.name,
+                          }))}
+                      />
                       <Button
                         type="submit"
                         size="sm"
-                        variant="secondary"
+                        variant="tonal"
                         disabled={c.status === "closed"}
                         disabledReason="This contest is closed — its eligibility list is part of the final record."
                       >
@@ -581,8 +577,7 @@ export default async function ElectionPage({
                 <Label htmlFor="new-contest-method" className="text-xs">
                   Ballot type
                 </Label>
-                <select
-                  id="new-contest-method"
+                <Select
                   name="method"
                   defaultValue="ranked"
                   disabled={election.status === "closed"}
@@ -591,11 +586,11 @@ export default async function ElectionPage({
                       ? "This election is closed — no more contests can be added."
                       : undefined
                   }
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="ranked">Ranked choice</option>
-                  <option value="single">Multiple choice</option>
-                </select>
+                  options={[
+                    { value: "ranked", label: "Ranked choice" },
+                    { value: "single", label: "Multiple choice" },
+                  ]}
+                />
               </div>
               <Button
                 type="submit"
@@ -628,7 +623,7 @@ export default async function ElectionPage({
             <form action={importActiveRoster.bind(null, election.id)}>
               <Button
                 type="submit"
-                variant="secondary"
+                variant="tonal"
                 size="sm"
                 disabled={election.status === "closed"}
                 disabledReason="This election is closed — its voter list is part of the final record."
@@ -656,27 +651,22 @@ export default async function ElectionPage({
                   action={addVoter.bind(null, election.id)}
                   className="flex gap-2"
                 >
-                  <select
+                  <Select
                     name="memberId"
-                    className="h-8 rounded-md border border-input bg-background px-2 text-sm disabled:cursor-not-allowed disabled:opacity-50"
                     required
-                    defaultValue=""
+                    placeholder="Add individual member…"
                     disabled={!!addReason}
                     title={addReason}
-                  >
-                    <option value="" disabled>
-                      Add individual member…
-                    </option>
-                    {addable.map((m) => (
-                      <option key={m.id} value={m.id}>
-                        {m.name}
-                      </option>
-                    ))}
-                  </select>
+                    className="h-10 min-w-56"
+                    options={addable.map((m) => ({
+                      value: m.id,
+                      label: m.name,
+                    }))}
+                  />
                   <Button
                     type="submit"
                     size="sm"
-                    variant="secondary"
+                    variant="tonal"
                     disabled={!!addReason}
                     disabledReason={addReason}
                   >
@@ -715,7 +705,7 @@ export default async function ElectionPage({
                             ? "This election is closed — its voter list is part of the final record."
                             : `Remove ${v.member.name}`
                       }
-                      className="text-muted-foreground hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
+                      className="text-on-surface-variant hover:text-destructive disabled:cursor-not-allowed disabled:opacity-40"
                       aria-label={`Remove ${v.member.name}`}
                     >
                       ×

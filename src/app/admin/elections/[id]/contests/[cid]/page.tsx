@@ -24,7 +24,7 @@ export default async function ContestResultsPage({
       <div>
         <Link
           href={`/admin/elections/${id}`}
-          className="text-sm text-muted-foreground hover:text-foreground"
+          className="text-sm text-on-surface-variant hover:text-on-surface"
         >
           ← {contest.election.title}
         </Link>

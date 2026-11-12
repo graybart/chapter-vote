@@ -39,7 +39,7 @@ export function BulkAddForm() {
           />
         </div>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-xs text-on-surface-variant">
         Line 1 of each column is the same person, line 2 the next, and so on.
         Leave the GTID column empty to import names only; a blank GTID line
         means that member votes without verification. Re-importing an

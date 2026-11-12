@@ -1,11 +1,25 @@
 import * as React from "react";
 import { cn } from "@/lib/utils";
 
-function Card({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) {
+/**
+ * M3 card. Defaults to the "filled" style — a tonal surface container
+ * rather than a white box with a border, which is the single biggest cue
+ * that separates a Material surface from a default Tailwind panel.
+ */
+function Card({
+  className,
+  variant = "filled",
+  ...props
+}: React.HTMLAttributes<HTMLDivElement> & {
+  variant?: "filled" | "elevated" | "outlined";
+}) {
   return (
     <div
       className={cn(
-        "rounded-xl border bg-card text-card-foreground shadow-sm",
+        "rounded-lg text-on-surface",
+        variant === "filled" && "bg-surface-low",
+        variant === "elevated" && "bg-surface-lowest shadow-e1",
+        variant === "outlined" && "border border-outline-variant bg-surface",
         className,
       )}
       {...props}
@@ -18,7 +32,7 @@ function CardHeader({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("flex flex-col gap-1.5 p-6", className)} {...props} />
+    <div className={cn("flex flex-col gap-1 p-5 pb-3", className)} {...props} />
   );
 }
 
@@ -26,12 +40,7 @@ function CardTitle({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return (
-    <div
-      className={cn("font-semibold leading-none tracking-tight", className)}
-      {...props}
-    />
-  );
+  return <div className={cn("m3-title-lg text-on-surface", className)} {...props} />;
 }
 
 function CardDescription({
@@ -39,7 +48,10 @@ function CardDescription({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("text-sm text-muted-foreground", className)} {...props} />
+    <div
+      className={cn("m3-body text-on-surface-variant", className)}
+      {...props}
+    />
   );
 }
 
@@ -47,7 +59,7 @@ function CardContent({
   className,
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("p-6 pt-0", className)} {...props} />;
+  return <div className={cn("p-5 pt-0", className)} {...props} />;
 }
 
 function CardFooter({
@@ -55,7 +67,7 @@ function CardFooter({
   ...props
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
-    <div className={cn("flex items-center p-6 pt-0", className)} {...props} />
+    <div className={cn("flex items-center p-5 pt-0", className)} {...props} />
   );
 }
 

@@ -76,7 +76,7 @@ export default async function AccountsPage() {
                       {a.role === "admin" ? "full admin" : "view-only"}
                     </Badge>
                   </div>
-                  <div className="text-xs text-muted-foreground">{a.email}</div>
+                  <div className="text-xs text-on-surface-variant">{a.email}</div>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <SetPasswordForm adminId={a.id} />

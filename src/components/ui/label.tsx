@@ -7,10 +7,7 @@ function Label({
 }: React.LabelHTMLAttributes<HTMLLabelElement>) {
   return (
     <label
-      className={cn(
-        "text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70",
-        className,
-      )}
+      className={cn("m3-label text-on-surface-variant", className)}
       {...props}
     />
   );

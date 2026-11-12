@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Select } from "@/components/ui/select";
 import {
   Card,
   CardContent,
@@ -173,7 +174,7 @@ export function VoterApp({ slug }: { slug: string }) {
   };
 
   if (!state) {
-    return <p className="text-sm text-muted-foreground">Loading…</p>;
+    return <p className="text-sm text-on-surface-variant">Loading…</p>;
   }
 
   const me = state.voters.find((v) => v.id === memberId);
@@ -192,21 +193,18 @@ export function VoterApp({ slug }: { slug: string }) {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
-            <select
-              className="h-11 w-full rounded-md border border-input bg-background px-3 text-base"
+            <Select
+              placeholder="Select your name…"
               value={pendingId}
-              onChange={(e) => {
-                setPendingId(e.target.value);
+              onValueChange={(v) => {
+                setPendingId(v);
                 setVerifyError(null);
               }}
-            >
-              <option value="">Select your name…</option>
-              {state.voters.map((v) => (
-                <option key={v.id} value={v.id}>
-                  {v.name}
-                </option>
-              ))}
-            </select>
+              options={state.voters.map((v) => ({
+                value: v.id,
+                label: v.name,
+              }))}
+            />
             <Button
               size="lg"
               disabled={!pendingId}
@@ -251,7 +249,7 @@ export function VoterApp({ slug }: { slug: string }) {
             </Button>
             <button
               onClick={logout}
-              className="self-start text-xs text-muted-foreground underline hover:text-foreground"
+              className="self-start text-xs text-on-surface-variant underline hover:text-on-surface"
             >
               Not {me.name}? Log out
             </button>
@@ -266,12 +264,12 @@ export function VoterApp({ slug }: { slug: string }) {
       <Shell title={state.election.title}>
         <Card>
           <CardContent className="flex flex-col gap-2 pt-6">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-on-surface-variant">
               Your saved name is no longer on the voter list for this election.
             </p>
             <button
               onClick={logout}
-              className="self-start text-xs text-muted-foreground underline hover:text-foreground"
+              className="self-start text-xs text-on-surface-variant underline hover:text-on-surface"
             >
               Choose a different name
             </button>
@@ -289,29 +287,29 @@ export function VoterApp({ slug }: { slug: string }) {
       {waiting ? (
         <WaitingCard electionStatus={state.election.status} />
       ) : contest.excluded ? (
-        <Card className="border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-950/40">
+        <Card variant="filled" className="bg-secondary-container text-on-secondary-container">
           <CardHeader>
-            <CardTitle className="text-amber-900 dark:text-amber-100">{contest.title}</CardTitle>
+            <CardTitle className="text-on-secondary-container">{contest.title}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-amber-900 dark:text-amber-100">
+            <p className="m3-body text-on-secondary-container">
               You’re not eligible to vote in this one. The screen will move on
               by itself when the next vote opens.
             </p>
           </CardContent>
         </Card>
       ) : contest.paused && !contest.voted ? (
-        <Card className="border-amber-300 bg-amber-50 dark:border-amber-500/40 dark:bg-amber-950/40">
+        <Card variant="filled" className="bg-secondary-container text-on-secondary-container">
           <CardHeader>
-            <CardTitle className="text-amber-900 dark:text-amber-100">
+            <CardTitle className="text-on-secondary-container">
               Voting is paused
             </CardTitle>
-            <CardDescription className="text-amber-800 dark:text-amber-200/90">
+            <CardDescription className="text-on-secondary-container/80">
               {contest.title}
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-amber-900 dark:text-amber-100">
+            <p className="m3-body text-on-secondary-container">
               The person running the election has paused this vote for a
               moment. Keep this page open — your ballot will come back by
               itself when voting resumes.
@@ -319,20 +317,20 @@ export function VoterApp({ slug }: { slug: string }) {
           </CardContent>
         </Card>
       ) : contest.voted ? (
-        <Card className="border-emerald-300 bg-emerald-50 dark:border-emerald-500/40 dark:bg-emerald-950/40">
+        <Card variant="filled" className="bg-tertiary-container text-on-tertiary-container">
           <CardHeader>
-            <CardTitle className="text-emerald-900 dark:text-emerald-100">
+            <CardTitle className="text-on-tertiary-container">
               ✓ Your vote is in
             </CardTitle>
-            <CardDescription className="text-emerald-800 dark:text-emerald-200/90">
+            <CardDescription className="text-on-tertiary-container/80">
               {contest.title}
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-2">
-            <p className="text-sm text-emerald-900 dark:text-emerald-100">
+            <p className="m3-body text-on-tertiary-container">
               Hold tight — this screen will show the next vote automatically.
             </p>
-            <p className="text-xs text-emerald-800/80 dark:text-emerald-200/70">
+            <p className="m3-body-sm text-on-tertiary-container/75">
               Made a mistake? The person running the election can reset your
               ballot so you can vote again. Note that this action is
               irreversible and permanently discards your previous vote. No
@@ -373,16 +371,16 @@ function Shell({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-bold">{title}</h1>
+        <h1 className="m3-headline">{title}</h1>
         {who && (
-          <div className="mt-0.5 text-sm text-muted-foreground">
+          <div className="mt-0.5 text-sm text-on-surface-variant">
             Voting as <span className="font-medium">{who}</span>
             {onLogout && (
               <>
                 {" · "}
                 <button
                   onClick={onLogout}
-                  className="underline hover:text-foreground"
+                  className="underline hover:text-on-surface"
                 >
                   Not {who}? Log out
                 </button>
@@ -407,15 +405,15 @@ function WaitingCard({
       <CardContent className="flex flex-col items-center gap-3 py-14 text-center">
         {!closed && (
           <span className="flex h-3 w-3">
-            <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex h-3 w-3 rounded-full bg-emerald-500" />
+            <span className="absolute inline-flex h-3 w-3 animate-ping rounded-full bg-tertiary opacity-75" />
+            <span className="relative inline-flex h-3 w-3 rounded-full bg-tertiary" />
           </span>
         )}
-        <p className="text-lg font-semibold">
+        <p className="m3-title-lg">
           {closed ? "Voting has concluded" : "Waiting for the next vote"}
         </p>
         {!closed && (
-          <p className="max-w-xs text-sm text-muted-foreground">
+          <p className="max-w-xs text-sm text-on-surface-variant">
             Keep this page open. When the next vote opens, your ballot will
             appear here automatically.
           </p>
@@ -458,10 +456,10 @@ function Ballot({
     });
 
   return (
-    <Card className="border-2 border-primary/40">
+    <Card variant="outlined" className="border-2 border-primary/50">
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
-          <CardTitle className="text-2xl">{contest.title}</CardTitle>
+          <CardTitle className="m3-headline">{contest.title}</CardTitle>
           <Badge variant="success">voting open</Badge>
         </div>
         <CardDescription>
@@ -483,10 +481,10 @@ function Ballot({
               {contest.candidates.map((c) => (
                 <label
                   key={c.id}
-                  className={`flex cursor-pointer items-center gap-3 rounded-md border px-4 py-3 text-base ${
+                  className={`m3-body flex cursor-pointer items-center gap-3 rounded-sm border px-4 py-3.5 text-base transition-colors ${
                     ranking[0] === c.id
-                      ? "border-primary bg-accent"
-                      : "hover:bg-accent/50"
+                      ? "border-primary bg-primary-container text-on-primary-container"
+                      : "hover:bg-on-surface/4"
                   }`}
                 >
                   <input
@@ -507,7 +505,7 @@ function Ballot({
               <div>
                 <div className="mb-1 text-sm font-medium">Your ranking</div>
                 {ranking.length === 0 ? (
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-sm text-on-surface-variant">
                     Tap candidates below in order of preference — first tap is
                     your first choice. You don’t have to rank everyone.
                   </p>
@@ -516,7 +514,7 @@ function Ballot({
                     {ranking.map((cid, i) => (
                       <li
                         key={cid}
-                        className="flex items-center gap-2 rounded-md border px-3 py-2 text-base"
+                        className="m3-body flex items-center gap-2 rounded-sm border border-outline-variant bg-surface-low px-3 py-2.5 text-base"
                       >
                         <span className="w-5 font-bold">{i + 1}.</span>
                         <span className="flex-1">{nameOf(cid)}</span>
@@ -526,7 +524,7 @@ function Ballot({
                           title={
                             i === 0 ? "Already your first choice." : "Move up"
                           }
-                          className="px-2 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                          className="px-2 text-on-surface-variant disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label="Move up"
                         >
                           ↑
@@ -539,7 +537,7 @@ function Ballot({
                               ? "Already your last choice."
                               : "Move down"
                           }
-                          className="px-2 text-muted-foreground disabled:cursor-not-allowed disabled:opacity-30"
+                          className="px-2 text-on-surface-variant disabled:cursor-not-allowed disabled:opacity-30"
                           aria-label="Move down"
                         >
                           ↓
@@ -548,7 +546,7 @@ function Ballot({
                           onClick={() =>
                             setRanking((r) => r.filter((x) => x !== cid))
                           }
-                          className="px-2 text-muted-foreground hover:text-destructive"
+                          className="px-2 text-on-surface-variant hover:text-destructive"
                           aria-label="Remove"
                         >
                           ✕
@@ -563,7 +561,7 @@ function Ballot({
                   {unranked.map((c) => (
                     <Button
                       key={c.id}
-                      variant="outline"
+                      variant="outlined"
                       onClick={() => setRanking((r) => [...r, c.id])}
                     >
                       + {c.name}
@@ -585,7 +583,7 @@ function Ballot({
           Abstain from this vote
         </label>
         {abstain && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-on-surface-variant">
             Your ballot will be recorded as an abstention — it won’t count
             toward any {single ? "option" : "candidate"}.
           </p>

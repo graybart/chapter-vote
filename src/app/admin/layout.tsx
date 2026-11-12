@@ -2,6 +2,7 @@ import Link from "next/link";
 import { auth } from "@/auth";
 import { signOutAction } from "@/lib/actions";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 export default async function AdminLayout({
   children,
@@ -13,31 +14,35 @@ export default async function AdminLayout({
   return (
     /* force-light: the admin UI doesn't follow the device's dark mode, so
        the officer running the meeting always sees the same screen. */
-    <div className="force-light min-h-screen bg-background text-foreground">
-      <nav className="border-b bg-card">
-        <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+    <div className="force-light min-h-screen bg-surface text-on-surface">
+      {/* M3 top app bar: a tonal surface rather than a white bar + border. */}
+      <nav className="bg-surface-container">
+        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-5 py-3">
           <div className="flex items-center gap-6">
-            <Link href="/admin" className="font-bold">
+            <Link
+              href="/admin"
+              className="m3-title-lg font-serif text-primary"
+            >
               ChapterVote
             </Link>
             {session?.user && (
               <>
                 <Link
                   href="/admin"
-                  className="text-sm text-muted-foreground hover:text-foreground"
+                  className="m3-label text-on-surface-variant transition-colors hover:text-on-surface"
                 >
                   Elections
                 </Link>
                 <Link
                   href="/admin/roster"
-                  className="text-sm text-muted-foreground hover:text-foreground"
+                  className="m3-label text-on-surface-variant transition-colors hover:text-on-surface"
                 >
                   Roster
                 </Link>
                 {session.user.isOwner && (
                   <Link
                     href="/admin/accounts"
-                    className="text-sm text-muted-foreground hover:text-foreground"
+                    className="m3-label text-on-surface-variant transition-colors hover:text-on-surface"
                   >
                     Accounts
                   </Link>
@@ -47,22 +52,20 @@ export default async function AdminLayout({
           </div>
           {session?.user && (
             <form action={signOutAction} className="flex items-center gap-3">
-              <span className="text-sm text-muted-foreground">
+              <span className="m3-body flex items-center gap-2 text-on-surface-variant">
                 {session.user.name}
                 {session.user.role === "observer" && (
-                  <span className="ml-2 rounded-full border px-2 py-0.5 text-xs">
-                    view-only
-                  </span>
+                  <Badge variant="outline">view-only</Badge>
                 )}
               </span>
-              <Button variant="outline" size="sm" type="submit">
+              <Button variant="outlined" size="sm" type="submit">
                 Sign out
               </Button>
             </form>
           )}
         </div>
       </nav>
-      <main className="mx-auto max-w-5xl px-4 py-8">{children}</main>
+      <main className="mx-auto max-w-5xl px-5 py-8">{children}</main>
     </div>
   );
 }

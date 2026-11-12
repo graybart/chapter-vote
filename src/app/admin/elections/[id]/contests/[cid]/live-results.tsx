@@ -72,7 +72,7 @@ export function LiveResults({ contestId }: { contestId: string }) {
 
   if (!data) {
     return (
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-on-surface-variant">
         {error ? `Couldn’t load results (${error}) — retrying…` : "Loading…"}
       </p>
     );
@@ -289,14 +289,14 @@ export function LiveResults({ contestId }: { contestId: string }) {
           <CardTitle>
             Turnout: {turnout.voted} / {turnout.eligible} ({pct}%)
             {turnout.abstained > 0 && (
-              <span className="ml-2 text-sm font-normal text-muted-foreground">
+              <span className="ml-2 text-sm font-normal text-on-surface-variant">
                 · {turnout.abstained} abstained
               </span>
             )}
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-2 w-full overflow-hidden rounded-full bg-muted">
+          <div className="h-2 w-full overflow-hidden rounded-full bg-surface-highest">
             <div
               className="h-full bg-emerald-500 transition-all"
               style={{ width: `${pct}%` }}
@@ -323,12 +323,12 @@ export function LiveResults({ contestId }: { contestId: string }) {
         </CardHeader>
         <CardContent className="flex flex-col gap-6">
           {result.seatResults.length === 0 && (
-            <p className="text-sm text-muted-foreground">No ballots yet.</p>
+            <p className="text-sm text-on-surface-variant">No ballots yet.</p>
           )}
           {result.seatResults.map((seatResult) => (
             <div key={seatResult.seat} className="flex flex-col gap-3">
               {multiSeat && isRanked && (
-                <div className="flex items-center gap-2 border-b pb-1">
+                <div className="flex items-center gap-2 border-b border-outline-variant pb-1">
                   <span className="font-semibold">Seat {seatResult.seat}</span>
                   {seatResult.winner ? (
                     <span className="text-sm text-emerald-700">
@@ -358,17 +358,17 @@ export function LiveResults({ contestId }: { contestId: string }) {
                       <span
                         className={`w-40 truncate ${
                           eliminatedIds.has(cid)
-                            ? "text-muted-foreground line-through"
+                            ? "text-on-surface-variant line-through"
                             : ""
                         }`}
                       >
                         {name(cid)}
                       </span>
-                      <div className="h-4 flex-1 overflow-hidden rounded bg-muted">
+                      <div className="h-4 flex-1 overflow-hidden rounded bg-surface-highest">
                         <div
                           className={`h-full ${
                             eliminatedIds.has(cid)
-                              ? "bg-muted-foreground/40"
+                              ? "bg-surface-highest-foreground/40"
                               : "bg-primary"
                           }`}
                           style={{
@@ -382,7 +382,7 @@ export function LiveResults({ contestId }: { contestId: string }) {
                     </div>
                   ))}
                 </div>
-                <div className="mt-2 flex flex-col gap-0.5 text-xs text-muted-foreground">
+                <div className="mt-2 flex flex-col gap-0.5 text-xs text-on-surface-variant">
                   {round.exhaustedBallots > 0 && (
                     <span>{round.exhaustedBallots} exhausted ballot(s)</span>
                   )}
@@ -424,7 +424,7 @@ export function LiveResults({ contestId }: { contestId: string }) {
                 <span key={v.memberId}>{v.name}</span>
               ))}
               {notVoted.length === 0 && (
-                <span className="text-muted-foreground">
+                <span className="text-on-surface-variant">
                   Everyone has voted 🎉
                 </span>
               )}
@@ -434,7 +434,7 @@ export function LiveResults({ contestId }: { contestId: string }) {
             <div className="mb-2 text-sm font-medium text-emerald-700">
               Voted ({voted.length})
             </div>
-            <div className="flex flex-col gap-1 text-sm text-muted-foreground">
+            <div className="flex flex-col gap-1 text-sm text-on-surface-variant">
               {voted.map((v) => (
                 <div
                   key={v.memberId}

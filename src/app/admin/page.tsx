@@ -62,18 +62,18 @@ export default async function AdminDashboard() {
         </CardHeader>
         <CardContent>
           {elections.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No elections yet.</p>
+            <p className="text-sm text-on-surface-variant">No elections yet.</p>
           ) : (
             <div className="divide-y">
               {elections.map((e) => (
                 <Link
                   key={e.id}
                   href={`/admin/elections/${e.id}`}
-                  className="flex items-center justify-between py-3 hover:bg-accent/50 -mx-2 px-2 rounded-md"
+                  className="flex items-center justify-between py-3 hover:bg-on-surface/4 -mx-2 px-2 rounded-md"
                 >
                   <div>
                     <div className="font-medium">{e.title}</div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-on-surface-variant">
                       {e.contests.length} contest
                       {e.contests.length === 1 ? "" : "s"} · created by{" "}
                       {e.createdBy.name} ·{" "}

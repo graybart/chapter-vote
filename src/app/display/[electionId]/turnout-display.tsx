@@ -91,20 +91,20 @@ export function TurnoutDisplay({
   const showCornerQr = !!data && !bigQr && data.electionStatus !== "closed";
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-neutral-950 text-white">
+    <div className="flex h-screen w-screen flex-col overflow-hidden bg-[#0b1a2a] text-[#f5f1e8]">
       {/* Header: election name with the live status chip beneath it, and
           the join QR tucked into the corner. */}
       <header className="flex items-start justify-between gap-[2vw] px-[3vw] pt-[3vh]">
         <div className="min-w-0">
-          <h1 className="truncate text-[min(2.4vw,4.2vh)] font-semibold leading-none text-neutral-400">
+          <h1 className="truncate text-[min(2.4vw,4.2vh)] font-semibold leading-none text-[#9fb3c8]">
             {data?.electionTitle ?? "Loading…"}
           </h1>
           {active && (
             <span
               className={`mt-[1.2vh] inline-block rounded-full px-[1.2vw] py-[0.7vh] text-[min(1.4vw,2.4vh)] font-semibold uppercase tracking-wide ${
                 active.paused
-                  ? "bg-amber-500/20 text-amber-300"
-                  : "bg-emerald-500/15 text-emerald-300"
+                  ? "bg-[#f1bd19]/20 text-[#f7d978]"
+                  : "bg-[#00a98e]/20 text-[#6cdbbe]"
               }`}
             >
               {active.paused ? "Voting paused" : "Voting open"}
@@ -119,7 +119,7 @@ export function TurnoutDisplay({
               alt="Scan to open the voting page"
               className="h-[15vh] w-[15vh] rounded-[0.8vh] bg-white p-[0.6vh]"
             />
-            <div className="mt-[0.6vh] text-[min(0.9vw,1.6vh)] font-medium text-neutral-500">
+            <div className="mt-[0.6vh] text-[min(0.9vw,1.6vh)] font-medium text-[#7d93aa]">
               Scan to vote
             </div>
           </div>
@@ -129,38 +129,38 @@ export function TurnoutDisplay({
       <main className="flex flex-1 flex-col items-center justify-center px-[3vw]">
         {!data ? null : active ? (
           <>
-            <h2 className="mb-[3vh] max-w-full truncate text-center text-[min(5.5vw,9vh)] font-black leading-none">
+            <h2 className="mb-[3vh] max-w-full truncate text-center font-serif text-[min(5.5vw,9vh)] font-semibold leading-none">
               {active.title}
             </h2>
 
             {everyoneIn ? (
               <div className="text-center">
-                <div className="text-[min(15vw,30vh)] font-black leading-none text-emerald-400">
+                <div className="text-[min(15vw,30vh)] font-black leading-none text-[#2fcfae]">
                   {active.voted}
                 </div>
-                <div className="mt-[1.5vh] text-[min(2.8vw,4.8vh)] font-bold uppercase tracking-wide text-emerald-300">
+                <div className="mt-[1.5vh] text-[min(2.8vw,4.8vh)] font-bold uppercase tracking-wide text-[#6cdbbe]">
                   Everyone has voted
                 </div>
               </div>
             ) : (
               <div className="flex w-full items-center justify-evenly">
                 <div className="text-center">
-                  <div className="text-[min(16vw,32vh)] font-black leading-[0.85] tabular-nums text-amber-400">
+                  <div className="text-[min(16vw,32vh)] font-black leading-[0.85] tabular-nums text-[#f1bd19]">
                     {active.remaining}
                   </div>
-                  <div className="mt-[1.2vh] text-[min(2.4vw,4.2vh)] font-bold uppercase tracking-[0.08em] text-amber-200">
+                  <div className="mt-[1.2vh] text-[min(2.4vw,4.2vh)] font-bold uppercase tracking-[0.08em] text-[#f7d978]">
                     Still to vote
                   </div>
                 </div>
                 <div
                   aria-hidden
-                  className="h-[34vh] w-[2px] shrink-0 bg-neutral-800"
+                  className="h-[34vh] w-[2px] shrink-0 bg-white/10"
                 />
                 <div className="text-center">
-                  <div className="text-[min(16vw,32vh)] font-black leading-[0.85] tabular-nums text-emerald-400">
+                  <div className="text-[min(16vw,32vh)] font-black leading-[0.85] tabular-nums text-[#2fcfae]">
                     {active.voted}
                   </div>
-                  <div className="mt-[1.2vh] text-[min(2.4vw,4.2vh)] font-bold uppercase tracking-[0.08em] text-emerald-200">
+                  <div className="mt-[1.2vh] text-[min(2.4vw,4.2vh)] font-bold uppercase tracking-[0.08em] text-[#a8e8d7]">
                     Voted
                   </div>
                 </div>
@@ -170,30 +170,30 @@ export function TurnoutDisplay({
         ) : data.published ? (
           /* Between contests, with a result the chair has published */
           <div className="w-full text-center">
-            <div className="text-[min(2.2vw,3.8vh)] font-semibold uppercase tracking-[0.12em] text-neutral-500">
+            <div className="text-[min(2.2vw,3.8vh)] font-semibold uppercase tracking-[0.12em] text-[#7d93aa]">
               {data.published.title}
             </div>
             {data.published.isTie && data.published.winnerNames.length === 0 ? (
-              <div className="mt-[3vh] text-[min(6vw,10vh)] font-black leading-tight text-amber-400">
+              <div className="mt-[3vh] text-[min(6vw,10vh)] font-black leading-tight text-[#f1bd19]">
                 Tie — revote required
               </div>
             ) : (
               <>
-                <div className="mt-[1.5vh] text-[min(2.6vw,4.4vh)] font-bold uppercase tracking-[0.1em] text-emerald-300">
+                <div className="mt-[1.5vh] text-[min(2.6vw,4.4vh)] font-bold uppercase tracking-[0.1em] text-[#6cdbbe]">
                   {data.published.winnerNames.length > 1 ? "Elected" : "Winner"}
                 </div>
                 <div className="mt-[1.5vh] flex flex-col items-center gap-[1.5vh]">
                   {data.published.winnerNames.map((n) => (
                     <div
                       key={n}
-                      className="max-w-full truncate text-[min(8vw,15vh)] font-black leading-none text-emerald-400"
+                      className="max-w-full truncate text-[min(8vw,15vh)] font-black leading-none text-[#2fcfae]"
                     >
                       {n}
                     </div>
                   ))}
                 </div>
                 {data.published.isTie && (
-                  <div className="mt-[2.5vh] text-[min(2vw,3.4vh)] font-semibold text-amber-400">
+                  <div className="mt-[2.5vh] text-[min(2vw,3.4vh)] font-semibold text-[#f1bd19]">
                     Remaining seat(s) tied — revote required
                   </div>
                 )}
@@ -207,8 +207,8 @@ export function TurnoutDisplay({
               <div className="flex items-center gap-[1.2vw]">
                 {data.electionStatus !== "closed" && (
                   <span className="relative flex h-[1.6vh] w-[1.6vh]">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
-                    <span className="relative inline-flex h-full w-full rounded-full bg-emerald-500" />
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#2fcfae] opacity-75" />
+                    <span className="relative inline-flex h-full w-full rounded-full bg-[#2fcfae]" />
                   </span>
                 )}
                 <span className="text-[min(4vw,7vh)] font-black leading-none">
@@ -219,10 +219,10 @@ export function TurnoutDisplay({
               </div>
               {data.electionStatus !== "closed" && (
                 <>
-                  <p className="mt-[2.5vh] text-[min(2vw,3.4vh)] text-neutral-400">
+                  <p className="mt-[2.5vh] text-[min(2vw,3.4vh)] text-[#9fb3c8]">
                     Not joined yet? Scan to vote from your phone:
                   </p>
-                  <p className="mt-[0.8vh] text-[min(1.8vw,3vh)] font-semibold text-neutral-200">
+                  <p className="mt-[0.8vh] text-[min(1.8vw,3vh)] font-semibold text-[#e4ddcc]">
                     {voteUrl}
                   </p>
                 </>
@@ -244,16 +244,16 @@ export function TurnoutDisplay({
       <footer className="px-[3vw] pb-[3vh]">
         {active ? (
           <>
-            <div className="mb-[1vh] flex items-baseline justify-between text-[min(1.6vw,2.8vh)] font-medium text-neutral-400">
+            <div className="mb-[1vh] flex items-baseline justify-between text-[min(1.6vw,2.8vh)] font-medium text-[#9fb3c8]">
               <span>
                 {active.voted} of {active.eligible} ballots in
               </span>
               <span className="tabular-nums">{pct}%</span>
             </div>
-            <div className="h-[4vh] w-full overflow-hidden rounded-full bg-neutral-800">
+            <div className="h-[4vh] w-full overflow-hidden rounded-full bg-white/10">
               <div
                 className={`h-full rounded-full transition-[width] duration-500 ease-out ${
-                  active.paused ? "bg-amber-500" : "bg-emerald-500"
+                  active.paused ? "bg-[#f1bd19]" : "bg-[#2fcfae]"
                 }`}
                 style={{ width: `${pct}%` }}
               />
@@ -263,7 +263,7 @@ export function TurnoutDisplay({
           <div className="h-[4vh]" />
         )}
         {stale && (
-          <p className="mt-[1vh] text-[min(1.2vw,2.2vh)] text-amber-500">
+          <p className="mt-[1vh] text-[min(1.2vw,2.2vh)] text-[#f1bd19]">
             Reconnecting — numbers may be a few seconds behind.
           </p>
         )}

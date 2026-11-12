@@ -102,7 +102,7 @@ export default async function RosterPage() {
         </CardHeader>
         <CardContent>
           {members.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-on-surface-variant">
               No members yet — add the chapter roster above.
             </p>
           ) : (
@@ -112,9 +112,9 @@ export default async function RosterPage() {
                   key={m.id}
                   className="flex items-center justify-between py-2"
                 >
-                  <span className={m.active ? "" : "text-muted-foreground line-through"}>
+                  <span className={m.active ? "" : "text-on-surface-variant line-through"}>
                     {m.name}
-                    <span className="ml-2 text-xs text-muted-foreground">
+                    <span className="ml-2 text-xs text-on-surface-variant">
                       {m.gtid
                         ? readOnly
                           ? `GTID •••••${m.gtid.slice(-4)}`

@@ -13,6 +13,7 @@ import {
 import { Button, type ButtonProps } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/confirm-button";
 import { SeatsField } from "./seats-field";
+import { OverflowMenu } from "@/components/ui/overflow-menu";
 
 type ContestStatus = "pending" | "open" | "closed";
 
@@ -72,8 +73,9 @@ function ActionButton({ a }: { a: Action }) {
  * Only the actions that apply to the contest's current state are rendered —
  * anything that doesn't apply simply isn't there. The "More" menu holds the
  * contest's settings (seats, ballot type), which are rarely changed and
- * would otherwise clutter the row. It's a native <details>, so this stays a
- * server component.
+ * would otherwise clutter the row. The menu itself is a client component
+ * (Base UI Popover), but the forms inside are passed as children so they
+ * stay server-rendered with their server actions intact.
  *
  * Nothing becomes unreachable by hiding inapplicable actions: a closed
  * contest gets back to draft via Reopen voting → Revert to draft, and a
@@ -94,7 +96,7 @@ export function ContestActions({
 }) {
   const resultsLink = (
     <Link href={`/admin/elections/${election.id}/contests/${c.id}`}>
-      <Button size="sm" variant="outline">
+      <Button size="sm" variant="outlined">
         {c.status === "open" ? "Live results" : "Results"}
       </Button>
     </Link>
@@ -123,7 +125,7 @@ export function ContestActions({
   const actions: Record<string, Action> = {
     pause: {
       label: c.paused ? "Resume voting" : "Pause voting",
-      variant: c.paused ? "warning" : "secondary",
+      variant: c.paused ? "warning" : "tonal",
       hint: c.paused
         ? undefined
         : "Stops new ballots without closing the contest — use it to reset a ballot or exclude someone mid-vote.",
@@ -152,12 +154,12 @@ export function ContestActions({
       label: c.resultsPublished
         ? "Hide result from projector"
         : "Show result on projector",
-      variant: c.resultsPublished ? "outline" : "secondary",
+      variant: c.resultsPublished ? "outlined" : "tonal",
       action: setResultsPublished.bind(null, c.id, !c.resultsPublished),
     },
     revert: {
       label: "Revert to draft",
-      variant: "ghost",
+      variant: "text",
       reason:
         ballots > 0
           ? `${ballots} ballot(s) have been cast. Reset them on the results page first.`
@@ -167,7 +169,7 @@ export function ContestActions({
     },
     remove: {
       label: "Delete",
-      variant: "ghost",
+      variant: "text",
       action: deleteContest.bind(null, c.id),
       confirmMessage: `Delete the contest “${c.title}”? This can’t be undone.`,
     },
@@ -196,15 +198,8 @@ export function ContestActions({
       ))}
       {resultsLink}
 
-      <details className="relative">
-        <summary className="inline-flex h-8 cursor-pointer list-none items-center rounded-md border border-input bg-background px-3 text-xs font-medium hover:bg-accent [&::-webkit-details-marker]:hidden">
-          More ▾
-        </summary>
-        <div className="absolute right-0 z-40 mt-1 flex w-72 flex-col gap-3 rounded-md border bg-card p-3 text-left shadow-lg">
-          <p className="px-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-            Contest settings
-          </p>
-
+      <OverflowMenu title="Contest settings">
+        <div className="flex flex-col gap-4">
           <SeatsField
             key={c.seats}
             contestId={c.id}
@@ -223,7 +218,7 @@ export function ContestActions({
               <Button
                 type="submit"
                 size="sm"
-                variant="outline"
+                variant="outlined"
                 className="w-full"
                 disabled={!!settingsLockedReason}
               >
@@ -231,13 +226,13 @@ export function ContestActions({
                 {c.method === "single" ? "ranked choice" : "multiple choice"}
               </Button>
             </form>
-            <p className="px-0.5 text-[11px] leading-snug text-muted-foreground">
+            <p className="m3-body-sm text-on-surface-variant">
               {settingsLockedReason ??
                 `Currently ${c.method === "single" ? "multiple choice" : "ranked choice"}.`}
             </p>
           </div>
         </div>
-      </details>
+      </OverflowMenu>
     </div>
   );
 }

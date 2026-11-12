@@ -1,29 +1,38 @@
+"use client";
+
+import { Tooltip } from "@base-ui/react/tooltip";
+
 /**
- * A small "?" bubble that explains a field on hover or keyboard focus.
- * Pure CSS, so it works inside server components.
+ * A "?" bubble that explains a field. On Base UI's Tooltip rather than the
+ * old CSS group-hover trick, which fired every tooltip in a container at
+ * once when two of them were nested.
  */
 export function InfoHint({ text }: { text: string }) {
   return (
-    <span
-      className="group relative inline-flex cursor-help align-middle"
-      tabIndex={0}
-      title={text}
-      aria-label={text}
-    >
-      <span
-        aria-hidden
-        className="flex h-4 w-4 items-center justify-center rounded-full border border-muted-foreground/50 text-[10px] font-bold leading-none text-muted-foreground"
+    <Tooltip.Root>
+      <Tooltip.Trigger
+        render={
+          <span
+            tabIndex={0}
+            aria-label={text}
+            className="inline-flex cursor-help align-middle outline-none"
+          />
+        }
       >
-        ?
-      </span>
-      <span
-        role="tooltip"
-        /* Anchored left rather than centred so a hint near the edge of a
-           card can't be clipped off-screen on a narrow window. */
-        className="pointer-events-none absolute bottom-full left-0 z-50 mb-1.5 hidden w-max max-w-[18rem] whitespace-normal rounded-md bg-primary px-2.5 py-1.5 text-xs font-normal leading-snug text-primary-foreground shadow-lg group-hover:block group-focus:block"
-      >
-        {text}
-      </span>
-    </span>
+        <span
+          aria-hidden
+          className="flex h-4 w-4 items-center justify-center rounded-full border border-on-surface-variant/60 text-[10px] font-bold leading-none text-on-surface-variant transition-colors hover:border-on-surface hover:text-on-surface"
+        >
+          ?
+        </span>
+      </Tooltip.Trigger>
+      <Tooltip.Portal>
+        <Tooltip.Positioner side="top" sideOffset={8} className="z-50">
+          <Tooltip.Popup className="max-w-72 rounded-sm bg-inverse-surface px-3 py-2 text-xs leading-snug text-inverse-on-surface shadow-e2">
+            {text}
+          </Tooltip.Popup>
+        </Tooltip.Positioner>
+      </Tooltip.Portal>
+    </Tooltip.Root>
   );
 }

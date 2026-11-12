@@ -1,102 +1,331 @@
 @import "tailwindcss";
 
-/* shadcn/ui-style design tokens (zinc palette) */
+/* ===========================================================================
+ * Material Design 3 token layer, keyed to the Delta Chi brand palette.
+ *
+ * Brand source (Delta Chi Brand Standards, "Color Palette"):
+ *   primary red    #ca3d31   buff/yellow  #f1bd19
+ *   navy  #11375c  sage #95b4b1  cream #e7dbb4  orange #d17f29  teal #00a98e
+ *
+ * Role assignment:
+ *   primary   = navy   — the main action colour
+ *   secondary = buff   — accents, chips, highlights
+ *   tertiary  = teal   — "voted"/success states
+ *   error     = red    — destructive only, so it keeps its warning weight
+ *
+ * Neutrals are warmed slightly towards the brand's cream rather than being
+ * pure grey, which is most of what stops this reading as a stock template.
+ * ======================================================================== */
+
 :root {
-  --radius: 0.55rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
+  color-scheme: light;
+
+  /* --- Primary: navy ---------------------------------------------------- */
+  --m3-primary: #1b4568;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #cfe4ff;
+  --m3-on-primary-container: #001d35;
+  --m3-primary-fixed-dim: #9ecbf2;
+
+  /* --- Secondary: buff --------------------------------------------------- */
+  --m3-secondary: #6d5c10;
+  --m3-on-secondary: #ffffff;
+  --m3-secondary-container: #f7e08c;
+  --m3-on-secondary-container: #221a00;
+  --m3-brand-buff: #f1bd19;
+
+  /* --- Tertiary: teal ---------------------------------------------------- */
+  --m3-tertiary: #006b58;
+  --m3-on-tertiary: #ffffff;
+  --m3-tertiary-container: #88f8da;
+  --m3-on-tertiary-container: #002019;
+
+  /* --- Error: Delta Chi red ---------------------------------------------- */
+  --m3-error: #b3281d;
+  --m3-on-error: #ffffff;
+  --m3-error-container: #ffdad4;
+  --m3-on-error-container: #410100;
+  --m3-brand-red: #ca3d31;
+
+  /* --- Neutrals (warmed toward the brand cream) -------------------------- */
+  --m3-surface: #fdfaf4;
+  --m3-surface-dim: #ded9d1;
+  --m3-surface-bright: #fdfaf4;
+  --m3-surface-container-lowest: #ffffff;
+  --m3-surface-container-low: #f8f3ec;
+  --m3-surface-container: #f2ede6;
+  --m3-surface-container-high: #ece7e0;
+  --m3-surface-container-highest: #e6e1da;
+  --m3-on-surface: #1d1b16;
+  --m3-on-surface-variant: #4c4639;
+  --m3-outline: #7e7667;
+  --m3-outline-variant: #cfc6b4;
+  --m3-inverse-surface: #32302a;
+  --m3-inverse-on-surface: #f5f0e8;
+  --m3-scrim: #000000;
+
+  /* --- Shape scale -------------------------------------------------------- */
+  --m3-corner-xs: 4px;
+  --m3-corner-sm: 8px;
+  --m3-corner-md: 12px;
+  --m3-corner-lg: 16px;
+  --m3-corner-xl: 28px;
+  --m3-corner-full: 9999px;
+
+  /* --- Elevation ---------------------------------------------------------- */
+  --m3-elev-0: none;
+  --m3-elev-1: 0 1px 2px 0 rgb(0 0 0 / 0.30), 0 1px 3px 1px rgb(0 0 0 / 0.15);
+  --m3-elev-2: 0 1px 2px 0 rgb(0 0 0 / 0.30), 0 2px 6px 2px rgb(0 0 0 / 0.15);
+  --m3-elev-3: 0 4px 8px 3px rgb(0 0 0 / 0.15), 0 1px 3px 0 rgb(0 0 0 / 0.30);
+  --m3-elev-4: 0 6px 10px 4px rgb(0 0 0 / 0.15), 0 2px 3px 0 rgb(0 0 0 / 0.30);
+
+  /* --- State layer opacities (M3 spec) ------------------------------------ */
+  --m3-state-hover: 0.08;
+  --m3-state-focus: 0.10;
+  --m3-state-pressed: 0.10;
 }
 
 /*
- * Dark mode follows the device setting. This is aimed at voters on their
- * phones — the admin pages opt out via `.force-light` (see below), so the
- * officer running the meeting always sees the same screen regardless of
- * what their laptop is set to.
+ * Dark scheme follows the device setting — aimed at voters on their phones.
+ * Admin screens opt out via `.force-light` so the officer running the
+ * meeting always sees the same thing.
  */
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --background: oklch(0.141 0.005 285.823);
-    --foreground: oklch(0.985 0 0);
-    --card: oklch(0.21 0.006 285.885);
-    --card-foreground: oklch(0.985 0 0);
-    --primary: oklch(0.92 0.004 286.32);
-    --primary-foreground: oklch(0.21 0.006 285.885);
-    --secondary: oklch(0.274 0.006 286.033);
-    --secondary-foreground: oklch(0.985 0 0);
-    --muted: oklch(0.274 0.006 286.033);
-    --muted-foreground: oklch(0.705 0.015 286.067);
-    --accent: oklch(0.274 0.006 286.033);
-    --accent-foreground: oklch(0.985 0 0);
-    --destructive: oklch(0.704 0.191 22.216);
-    --destructive-foreground: oklch(0.985 0 0);
-    --border: oklch(1 0 0 / 14%);
-    --input: oklch(1 0 0 / 18%);
-    --ring: oklch(0.552 0.016 285.938);
+
+    --m3-primary: #9ecbf2;
+    --m3-on-primary: #00325a;
+    --m3-primary-container: #0d4870;
+    --m3-on-primary-container: #cfe4ff;
+
+    --m3-secondary: #dac474;
+    --m3-on-secondary: #3a2f00;
+    --m3-secondary-container: #534405;
+    --m3-on-secondary-container: #f7e08c;
+
+    --m3-tertiary: #6cdbbe;
+    --m3-on-tertiary: #00382c;
+    --m3-tertiary-container: #005141;
+    --m3-on-tertiary-container: #88f8da;
+
+    --m3-error: #ffb4a8;
+    --m3-on-error: #690100;
+    --m3-error-container: #8f1d13;
+    --m3-on-error-container: #ffdad4;
+
+    --m3-surface: #15130e;
+    --m3-surface-dim: #15130e;
+    --m3-surface-bright: #3c3933;
+    --m3-surface-container-lowest: #100e09;
+    --m3-surface-container-low: #1d1b16;
+    --m3-surface-container: #211f1a;
+    --m3-surface-container-high: #2c2924;
+    --m3-surface-container-highest: #37342e;
+    --m3-on-surface: #e8e2d9;
+    --m3-on-surface-variant: #cfc6b4;
+    --m3-outline: #989080;
+    --m3-outline-variant: #4c4639;
+    --m3-inverse-surface: #e8e2d9;
+    --m3-inverse-on-surface: #32302a;
+
+    /* Shadows read as almost nothing on dark; M3 leans on surface tone. */
+    --m3-elev-1: 0 1px 2px 0 rgb(0 0 0 / 0.60), 0 1px 3px 1px rgb(0 0 0 / 0.40);
+    --m3-elev-2: 0 1px 2px 0 rgb(0 0 0 / 0.60), 0 2px 6px 2px rgb(0 0 0 / 0.40);
+    --m3-elev-3: 0 4px 8px 3px rgb(0 0 0 / 0.40), 0 1px 3px 0 rgb(0 0 0 / 0.60);
   }
 }
 
 /* Admin screens stay light whatever the device is set to. */
 .force-light {
   color-scheme: light;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.141 0.005 285.823);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.141 0.005 285.823);
-  --primary: oklch(0.21 0.006 285.885);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.967 0.001 286.375);
-  --secondary-foreground: oklch(0.21 0.006 285.885);
-  --muted: oklch(0.967 0.001 286.375);
-  --muted-foreground: oklch(0.552 0.016 285.938);
-  --accent: oklch(0.967 0.001 286.375);
-  --accent-foreground: oklch(0.21 0.006 285.885);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.985 0 0);
-  --border: oklch(0.92 0.004 286.32);
-  --input: oklch(0.92 0.004 286.32);
-  --ring: oklch(0.705 0.015 286.067);
+
+  --m3-primary: #1b4568;
+  --m3-on-primary: #ffffff;
+  --m3-primary-container: #cfe4ff;
+  --m3-on-primary-container: #001d35;
+
+  --m3-secondary: #6d5c10;
+  --m3-on-secondary: #ffffff;
+  --m3-secondary-container: #f7e08c;
+  --m3-on-secondary-container: #221a00;
+
+  --m3-tertiary: #006b58;
+  --m3-on-tertiary: #ffffff;
+  --m3-tertiary-container: #88f8da;
+  --m3-on-tertiary-container: #002019;
+
+  --m3-error: #b3281d;
+  --m3-on-error: #ffffff;
+  --m3-error-container: #ffdad4;
+  --m3-on-error-container: #410100;
+
+  --m3-surface: #fdfaf4;
+  --m3-surface-container-lowest: #ffffff;
+  --m3-surface-container-low: #f8f3ec;
+  --m3-surface-container: #f2ede6;
+  --m3-surface-container-high: #ece7e0;
+  --m3-surface-container-highest: #e6e1da;
+  --m3-on-surface: #1d1b16;
+  --m3-on-surface-variant: #4c4639;
+  --m3-outline: #7e7667;
+  --m3-outline-variant: #cfc6b4;
+  --m3-inverse-surface: #32302a;
+  --m3-inverse-on-surface: #f5f0e8;
 }
 
+/* Expose the tokens to Tailwind as `bg-primary`, `text-on-surface`, etc. */
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-destructive-foreground: var(--destructive-foreground);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
+  --color-primary: var(--m3-primary);
+  --color-on-primary: var(--m3-on-primary);
+  --color-primary-container: var(--m3-primary-container);
+  --color-on-primary-container: var(--m3-on-primary-container);
+
+  --color-secondary: var(--m3-secondary);
+  --color-on-secondary: var(--m3-on-secondary);
+  --color-secondary-container: var(--m3-secondary-container);
+  --color-on-secondary-container: var(--m3-on-secondary-container);
+  --color-brand-buff: var(--m3-brand-buff);
+
+  --color-tertiary: var(--m3-tertiary);
+  --color-on-tertiary: var(--m3-on-tertiary);
+  --color-tertiary-container: var(--m3-tertiary-container);
+  --color-on-tertiary-container: var(--m3-on-tertiary-container);
+
+  --color-error: var(--m3-error);
+  --color-on-error: var(--m3-on-error);
+  --color-error-container: var(--m3-error-container);
+  --color-on-error-container: var(--m3-on-error-container);
+  --color-brand-red: var(--m3-brand-red);
+
+  --color-surface: var(--m3-surface);
+  --color-surface-lowest: var(--m3-surface-container-lowest);
+  --color-surface-low: var(--m3-surface-container-low);
+  --color-surface-container: var(--m3-surface-container);
+  --color-surface-high: var(--m3-surface-container-high);
+  --color-surface-highest: var(--m3-surface-container-highest);
+  --color-on-surface: var(--m3-on-surface);
+  --color-on-surface-variant: var(--m3-on-surface-variant);
+  --color-outline: var(--m3-outline);
+  --color-outline-variant: var(--m3-outline-variant);
+  --color-inverse-surface: var(--m3-inverse-surface);
+  --color-inverse-on-surface: var(--m3-inverse-on-surface);
+
+  --radius-xs: var(--m3-corner-xs);
+  --radius-sm: var(--m3-corner-sm);
+  --radius-md: var(--m3-corner-md);
+  --radius-lg: var(--m3-corner-lg);
+  --radius-xl: var(--m3-corner-xl);
+
+  --shadow-e1: var(--m3-elev-1);
+  --shadow-e2: var(--m3-elev-2);
+  --shadow-e3: var(--m3-elev-3);
+
+  /* Montserrat for UI, a serif for headings — the brand guide's own
+     webfont alternatives to Gotham and Chronicle. */
+  --font-sans: var(--font-montserrat), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), ui-serif, Georgia, serif;
 }
 
-* {
-  border-color: var(--border);
+/* ---------------------------------------------------------------------------
+ * M3 type scale. Display/headline use the serif for the brand's
+ * "traditional" trait; everything functional uses Montserrat.
+ * ------------------------------------------------------------------------ */
+@utility m3-display {
+  font-family: var(--font-serif);
+  font-size: clamp(2rem, 1.4rem + 2.4vw, 3.25rem);
+  line-height: 1.1;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+@utility m3-headline {
+  font-family: var(--font-serif);
+  font-size: clamp(1.5rem, 1.2rem + 1.2vw, 2rem);
+  line-height: 1.2;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+@utility m3-title-lg {
+  font-family: var(--font-sans);
+  font-size: 1.25rem;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0;
+}
+@utility m3-title {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  line-height: 1.5;
+  font-weight: 600;
+  letter-spacing: 0.009em;
+}
+@utility m3-body {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.55;
+  font-weight: 400;
+  letter-spacing: 0.016em;
+}
+@utility m3-body-sm {
+  font-family: var(--font-sans);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+@utility m3-label {
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0.006em;
+}
+@utility m3-label-sm {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+/* ---------------------------------------------------------------------------
+ * State layers. M3 tints an element with its own foreground colour on
+ * hover/press rather than swapping the background — set --state to the
+ * foreground colour and this handles the rest.
+ * ------------------------------------------------------------------------ */
+@utility m3-state {
+  position: relative;
+  isolation: isolate;
+}
+@utility m3-state-layer {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--state, currentColor);
+  opacity: 0;
+  transition: opacity 120ms ease;
+  pointer-events: none;
+  z-index: -1;
+}
+
+@layer base {
+  * {
+    border-color: var(--m3-outline-variant);
+  }
+  body {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    /* Base UI needs the page to be a positioning context for dialog
+       backdrops on iOS 26+ Safari. */
+    position: relative;
+  }
+  /* Keeps Base UI portals above everything without z-index fights. */
+  .app-root {
+    isolation: isolate;
+  }
+  ::selection {
+    background: var(--m3-secondary-container);
+    color: var(--m3-on-secondary-container);
+  }
 }
