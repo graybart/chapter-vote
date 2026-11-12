@@ -1,0 +1,1 @@
+ALTER TABLE "contests" ADD COLUMN "collapsed" boolean DEFAULT false NOT NULL;

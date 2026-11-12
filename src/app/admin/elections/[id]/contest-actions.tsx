@@ -6,6 +6,7 @@ import {
   openContest,
   reopenContest,
   revertContestToPending,
+  hideResultAndCollapse,
   setContestMethod,
   setContestPaused,
   setResultsPublished,
@@ -25,6 +26,7 @@ interface ContestLike {
   seats: number;
   resultsPublished: boolean;
   paused: boolean;
+  collapsed: boolean;
   candidates: { withdrawn: boolean }[];
 }
 
@@ -167,6 +169,12 @@ export function ContestActions({
       action: revertContestToPending.bind(null, c.id),
       confirmMessage: `Revert “${c.title}” to draft? It’s unpublished from the ballot until you open voting again. Candidates and exclusions are kept.`,
     },
+    hideAndCollapse: {
+      label: "Hide Result & Collapse Contest",
+      variant: "tonal",
+      hint: "Takes the winner off the projector and folds this contest away.",
+      action: hideResultAndCollapse.bind(null, c.id),
+    },
     remove: {
       label: "Delete",
       variant: "text",
@@ -189,7 +197,9 @@ export function ContestActions({
       ? ["remove", "open"]
       : c.status === "open"
         ? ["pause", "closeAndShow", "close", "revert"]
-        : ["open", "publish"];
+        : c.resultsPublished
+          ? ["hideAndCollapse", "open"]
+          : ["open", "publish"];
 
   return (
     <div className="flex flex-wrap items-center justify-end gap-2">

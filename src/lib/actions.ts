@@ -549,10 +549,18 @@ export async function removeVoter(electionId: string, memberId: string) {
 // Contests & candidates
 // ---------------------------------------------------------------------------
 
-export async function addContest(electionId: string, formData: FormData) {
+/**
+ * Add a contest. Returns a result so the dialog that calls it knows
+ * whether to close or stay open showing an error.
+ */
+export async function addContest(
+  electionId: string,
+  _prevState: { ok: boolean; message?: string } | undefined,
+  formData: FormData,
+): Promise<{ ok: boolean; message?: string }> {
   const adminId = await requireAdmin();
   const title = String(formData.get("title") ?? "").trim();
-  if (!title) return;
+  if (!title) return { ok: false, message: "Give the contest a name." };
   // Number of open seats (Judicial Board elections fill several at once).
   const seats = Math.min(
     50,
@@ -573,6 +581,7 @@ export async function addContest(electionId: string, formData: FormData) {
     createdById: adminId,
   });
   revalidatePath(`/admin/elections/${electionId}`);
+  return { ok: true };
 }
 
 /** Switch a contest between ranked-choice and multiple choice (pre-voting). */
@@ -696,7 +705,53 @@ export async function openContest(contestId: string) {
   await unpublishOtherResults(contest.electionId);
   await db
     .update(t.contests)
-    .set({ status: "open", openedAt: new Date(), paused: false })
+    .set({
+      status: "open",
+      openedAt: new Date(),
+      paused: false,
+      collapsed: false,
+    })
+    .where(eq(t.contests.id, contestId));
+  revalidatePath(`/admin/elections/${contest.electionId}`);
+}
+
+/**
+ * Fold a contest down to a ribbon on the admin page, or open it back up.
+ * Presentational only — voters and the projector are unaffected. Blocked
+ * while voting is open, so the live contest can't be hidden by accident.
+ */
+export async function setContestCollapsed(
+  contestId: string,
+  collapsed: boolean,
+) {
+  await requireAdmin();
+  const [contest] = await db
+    .select()
+    .from(t.contests)
+    .where(eq(t.contests.id, contestId));
+  if (!contest) return;
+  if (collapsed && contest.status === "open") return;
+  await db
+    .update(t.contests)
+    .set({ collapsed })
+    .where(eq(t.contests.id, contestId));
+  revalidatePath(`/admin/elections/${contest.electionId}`);
+}
+
+/**
+ * End-of-contest tidy-up in one click: take the winner off the projector
+ * (back to the waiting screen) and fold the row away.
+ */
+export async function hideResultAndCollapse(contestId: string) {
+  await requireAdmin();
+  const [contest] = await db
+    .select()
+    .from(t.contests)
+    .where(eq(t.contests.id, contestId));
+  if (!contest || contest.status !== "closed") return;
+  await db
+    .update(t.contests)
+    .set({ resultsPublished: false, collapsed: true })
     .where(eq(t.contests.id, contestId));
   revalidatePath(`/admin/elections/${contest.electionId}`);
 }
@@ -947,6 +1002,7 @@ export async function revertContestToPending(contestId: string) {
         closedAt: null,
         closedById: null,
         paused: false,
+        collapsed: false,
         resultsPublished: false,
       })
       .where(eq(t.contests.id, contestId));
@@ -1040,6 +1096,7 @@ export async function reopenContest(contestId: string) {
         closedAt: null,
         closedById: null,
         paused: false,
+        collapsed: false,
         resultsPublished: false, // back to hidden until re-closed + re-shown
       })
       .where(eq(t.contests.id, contestId));

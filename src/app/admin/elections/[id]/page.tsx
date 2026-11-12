@@ -7,7 +7,6 @@ import { db } from "@/db";
 import * as t from "@/db/schema";
 import {
   addCandidate,
-  addContest,
   addVoter,
   closeElection,
   deleteElection,
@@ -23,6 +22,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { ConfirmButton } from "@/components/confirm-button";
 import { ImportAttendees } from "./import-attendees";
+import { AddContestDialog } from "./add-contest-dialog";
+import { CollapseToggle } from "./collapse-toggle";
 import { ContestActions } from "./contest-actions";
 import { InfoHint } from "@/components/info-hint";
 import { Select } from "@/components/ui/select";
@@ -133,166 +134,174 @@ export default async function ElectionPage({
           <Badge variant={statusVariant[election.status]}>
             {election.status}
           </Badge>
-          {!readOnly &&
-            (() => {
-              // Same idea as the contest rows: always show every election
-              // action, greyed with the reason when it isn't available.
-              const openReason =
-                election.status === "open"
-                  ? "This election is already open."
-                  : election.status === "closed"
-                    ? "This election is closed — use “Reopen election”."
-                    : election.contests.length === 0
-                      ? "Add at least one contest before opening the election."
-                      : undefined;
-
-              const closeReason =
-                election.status === "draft"
-                  ? "This election hasn’t been opened yet, so there’s nothing to close."
-                  : election.status === "closed"
-                    ? "This election is already closed."
-                    : undefined;
-
-              const revertReason =
-                election.status === "draft"
-                  ? "This election is already a draft."
-                  : election.status === "closed"
-                    ? "This election is closed — reopen it first if you need to change anything."
-                    : ballotRows.length > 0
-                      ? `${ballotRows.length} ballot(s) have already been cast in this election, so it can’t go back to draft.`
-                      : undefined;
-
-              const deleteReason =
-                election.status !== "draft"
-                  ? "Only a draft election can be deleted, so past elections stay on the record."
-                  : undefined;
-
-              return (
+          {!readOnly && (
+            <>
+              {/* Only the actions that apply right now — anything that
+                  doesn't simply isn't rendered. */}
+              {election.status === "draft" && (
                 <>
                   <form action={openElection.bind(null, election.id)}>
                     <Button
                       type="submit"
-                      disabled={!!openReason}
-                      disabledReason={openReason}
+                      size="sm"
+                      disabled={election.contests.length === 0}
+                      disabledReason="Add at least one contest before opening the election."
                     >
                       Open election
                     </Button>
                   </form>
-                  <form action={closeElection.bind(null, election.id)}>
-                    <ConfirmButton
-                      type="submit"
-                      variant="destructive"
-                      disabled={!!closeReason}
-                      disabledReason={closeReason}
-                      confirmMessage="Close this election? Any contests still open will be closed and their results frozen."
-                    >
-                      Close election
-                    </ConfirmButton>
-                  </form>
-                  <form action={reopenElection.bind(null, election.id)}>
-                    <ConfirmButton
-                      type="submit"
-                      variant="outlined"
-                      disabled={election.status !== "closed"}
-                      disabledReason={
-                        election.status === "open"
-                          ? "This election is already open."
-                          : "This election is still a draft — use “Open election”."
-                      }
-                      confirmMessage="Reopen this election? Contests stay closed with their results intact; you can then reopen individual contests."
-                    >
-                      Reopen election
-                    </ConfirmButton>
-                  </form>
-                  <form action={revertElectionToDraft.bind(null, election.id)}>
-                    <ConfirmButton
-                      type="submit"
-                      variant="outlined"
-                      disabled={!!revertReason}
-                      disabledReason={revertReason}
-                      confirmMessage="Revert this election to draft? The voter link/QR stops working and every contest returns to draft."
-                    >
-                      Revert to draft
-                    </ConfirmButton>
-                  </form>
                   <form action={deleteElection.bind(null, election.id)}>
                     <ConfirmButton
                       type="submit"
+                      size="sm"
                       variant="destructive"
-                      disabled={!!deleteReason}
-                      disabledReason={deleteReason}
                       confirmMessage="Delete this draft election and everything in it? This cannot be undone."
                     >
                       Delete draft
                     </ConfirmButton>
                   </form>
                 </>
-              );
-            })()}
+              )}
+
+              {election.status === "open" && (
+                <>
+                  <form action={closeElection.bind(null, election.id)}>
+                    <ConfirmButton
+                      type="submit"
+                      size="sm"
+                      variant="destructive"
+                      confirmMessage="Close this election? Any contests still open will be closed and their results frozen."
+                    >
+                      Close election
+                    </ConfirmButton>
+                  </form>
+                  {ballotRows.length === 0 && (
+                    <form
+                      action={revertElectionToDraft.bind(null, election.id)}
+                    >
+                      <ConfirmButton
+                        type="submit"
+                        size="sm"
+                        variant="outlined"
+                        confirmMessage="Revert this election to draft? The voter link/QR stops working and every contest returns to draft."
+                      >
+                        Revert to draft
+                      </ConfirmButton>
+                    </form>
+                  )}
+                </>
+              )}
+
+              {election.status === "closed" && (
+                <form action={reopenElection.bind(null, election.id)}>
+                  <ConfirmButton
+                    type="submit"
+                    size="sm"
+                    variant="outlined"
+                    confirmMessage="Reopen this election? Contests stay closed with their results intact; you can then reopen individual contests."
+                  >
+                    Reopen election
+                  </ConfirmButton>
+                </form>
+              )}
+            </>
+          )}
         </div>
       </div>
 
-      {/* Voter access */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Voter access</CardTitle>
-          <CardDescription>
-            Share this link or put the QR code on the projector. Voters pick
-            their name from the roster — no login needed.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-6">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={qrDataUrl} alt="Voter QR code" className="h-40 w-40" />
-          <div className="flex flex-col gap-1">
-            <code className="rounded bg-surface-highest px-2 py-1 text-sm">{voteUrl}</code>
-            <span className="text-xs text-on-surface-variant">
-              Active only while the election is open.
-            </span>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Voter access + projector, side by side */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle>Voter access</CardTitle>
+            <CardDescription>
+              Share this link or put the QR code on the projector. Voters
+              pick their name from the roster — no login needed.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-5">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={qrDataUrl}
+              alt="Voter QR code"
+              className="h-32 w-32 rounded-sm bg-white p-1"
+            />
+            <div className="flex min-w-0 flex-col gap-1">
+              <code className="truncate rounded-xs bg-surface-highest px-2 py-1 text-sm">
+                {voteUrl}
+              </code>
+              <span className="m3-body-sm text-on-surface-variant">
+                Active only while the election is open.
+              </span>
+            </div>
+          </CardContent>
+        </Card>
 
-      {/* Projector display */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Projector view</CardTitle>
-          <CardDescription>
-            A full-screen turnout counter for the projector: how many still
-            need to vote, how many have, and a bar that fills as ballots come
-            in. No login needed, and it shows counts only — never names or
-            results. Keep this link off the voters’ screens: it’s a different
-            address from the voting link precisely so they can’t reach it from
-            their phones.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="flex flex-wrap items-center gap-3">
-          <a href={displayUrl} target="_blank" rel="noreferrer">
-            <Button variant="tonal" size="sm">
-              Open projector view ↗
-            </Button>
-          </a>
-          <code className="rounded bg-surface-highest px-2 py-1 text-xs">
-            {displayUrl}
-          </code>
-        </CardContent>
-      </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Projector view</CardTitle>
+            <CardDescription>
+              A full-screen turnout counter. No login needed, and it shows
+              counts and published winners only — never names or ballots.
+              It’s a different address from the voting link precisely so
+              voters can’t reach it from their phones.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col items-start gap-3">
+            <a href={displayUrl} target="_blank" rel="noreferrer">
+              <Button variant="tonal" size="sm">
+                Open projector view ↗
+              </Button>
+            </a>
+            <code className="w-full truncate rounded-xs bg-surface-highest px-2 py-1 text-xs">
+              {displayUrl}
+            </code>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Contests */}
       <Card>
         <CardHeader>
-          <CardTitle>Contests</CardTitle>
-          <CardDescription>
-            Add candidates while a contest is pending, then open it for
-            voting. Closing a contest freezes the official IRV result.
-          </CardDescription>
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex flex-col gap-1">
+              <CardTitle>Contests</CardTitle>
+              <CardDescription>
+                Add candidates while a contest is a draft, then open it for
+                voting. Closing a contest freezes the official result.
+              </CardDescription>
+            </div>
+            {!readOnly && (
+              <AddContestDialog
+                electionId={election.id}
+                disabledReason={
+                  election.status === "closed"
+                    ? "This election is closed — no more contests can be added."
+                    : undefined
+                }
+              />
+            )}
+          </div>
         </CardHeader>
         <CardContent className="flex flex-col gap-4">
           {election.contests.map((c) => (
-            <div key={c.id} className="rounded-lg border p-4">
+            <div
+              key={c.id}
+              className={`rounded-lg border ${
+                c.collapsed ? "bg-surface-low px-3 py-2" : "p-4"
+              }`}
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-3">
-                  <span className="font-medium">{c.title}</span>
+                  {!readOnly && (
+                    <CollapseToggle
+                      contestId={c.id}
+                      collapsed={c.collapsed}
+                      canToggle={c.status !== "open"}
+                      title={c.title}
+                    />
+                  )}
+                  <span className="m3-title">{c.title}</span>
                   <Badge
                     variant={
                       c.status === "open" && c.paused
@@ -312,26 +321,48 @@ export default async function ElectionPage({
                   <Badge variant="secondary">
                     {c.method === "single" ? "multiple choice" : "ranked"}
                   </Badge>
-                  <span className="text-xs text-on-surface-variant">
+                  <span className="m3-body-sm text-on-surface-variant">
                     {ballotCount.get(c.id) ?? 0} /{" "}
                     {election.voters.length - c.exclusions.length} ballots
                   </span>
+                  {/* Collapsed rows keep the result inline, so the page
+                      reads as a summary of the night at a glance. */}
+                  {c.collapsed && c.result && (
+                    <span className="m3-body-sm font-semibold text-tertiary">
+                      {(() => {
+                        const won =
+                          c.result.winners ??
+                          (c.result.winnerCandidateId
+                            ? [c.result.winnerCandidateId]
+                            : []);
+                        if (won.length === 0) {
+                          return c.result.isTie ? "⚠️ Tie — revote required" : "";
+                        }
+                        const nameOf = (id: string) =>
+                          c.candidates.find((x) => x.id === id)?.name ??
+                          "Unknown";
+                        return `🏆 ${won.map(nameOf).join(", ")}`;
+                      })()}
+                    </span>
+                  )}
                 </div>
-                <ContestActions
-                  contest={c}
-                  election={election}
-                  readOnly={readOnly}
-                  ballots={ballotCount.get(c.id) ?? 0}
-                  otherOpenTitle={
-                    election.contests.find(
-                      (x) => x.status === "open" && x.id !== c.id,
-                    )?.title
-                  }
-                />
+                {!c.collapsed && (
+                  <ContestActions
+                    contest={c}
+                    election={election}
+                    readOnly={readOnly}
+                    ballots={ballotCount.get(c.id) ?? 0}
+                    otherOpenTitle={
+                      election.contests.find(
+                        (x) => x.status === "open" && x.id !== c.id,
+                      )?.title
+                    }
+                  />
+                )}
               </div>
 
               {/* Official result (closed contests) */}
-              {c.status === "closed" && c.result && (
+              {!c.collapsed && c.status === "closed" && c.result && (
                 <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                   {(() => {
                     const won =
@@ -375,6 +406,7 @@ export default async function ElectionPage({
               )}
 
               {/* Candidates */}
+              {!c.collapsed && (
               <div className="mt-3 flex flex-wrap items-center gap-2">
                 {c.candidates.map((cand) => (
                   <span
@@ -411,7 +443,8 @@ export default async function ElectionPage({
                   </span>
                 )}
               </div>
-              {!readOnly && (
+              )}
+              {!readOnly && !c.collapsed && (
                 <div className="mt-3 flex flex-wrap items-center gap-4">
                   <form
                     action={addCandidate.bind(null, c.id)}
@@ -444,7 +477,7 @@ export default async function ElectionPage({
               )}
 
               {/* Excluded voters — e.g. members up for this office */}
-              {(c.exclusions.length > 0 || !readOnly) && (
+              {!c.collapsed && (c.exclusions.length > 0 || !readOnly) && (
                 <div className="mt-3 border-t pt-3">
                   <div className="flex flex-wrap items-center gap-2 text-sm">
                     <span className="text-xs font-medium text-on-surface-variant">
@@ -528,79 +561,6 @@ export default async function ElectionPage({
             </div>
           ))}
 
-          {!readOnly && (
-            <form
-              action={addContest.bind(null, election.id)}
-              className="flex max-w-xl flex-wrap items-end gap-2"
-            >
-              <div className="flex min-w-56 flex-1 flex-col gap-1">
-                <Label htmlFor="new-contest-title" className="text-xs">
-                  Contest
-                </Label>
-                <Input
-                  id="new-contest-title"
-                  name="title"
-                  placeholder='e.g. "President"'
-                  required
-                  disabled={election.status === "closed"}
-                  title={
-                    election.status === "closed"
-                      ? "This election is closed — no more contests can be added."
-                      : undefined
-                  }
-                />
-              </div>
-              <div className="flex w-24 flex-col gap-1">
-                <Label
-                  htmlFor="new-contest-seats"
-                  className="flex items-center gap-1 text-xs"
-                >
-                  Seats
-                  <InfoHint text={SEATS_HINT} />
-                </Label>
-                <Input
-                  id="new-contest-seats"
-                  name="seats"
-                  type="number"
-                  min={1}
-                  max={50}
-                  defaultValue={1}
-                  title={
-                    election.status === "closed"
-                      ? "This election is closed — no more contests can be added."
-                      : "Number of open seats — use more than 1 for Judicial Board style elections"
-                  }
-                  disabled={election.status === "closed"}
-                />
-              </div>
-              <div className="flex w-44 flex-col gap-1">
-                <Label htmlFor="new-contest-method" className="text-xs">
-                  Ballot type
-                </Label>
-                <Select
-                  name="method"
-                  defaultValue="ranked"
-                  disabled={election.status === "closed"}
-                  title={
-                    election.status === "closed"
-                      ? "This election is closed — no more contests can be added."
-                      : undefined
-                  }
-                  options={[
-                    { value: "ranked", label: "Ranked choice" },
-                    { value: "single", label: "Multiple choice" },
-                  ]}
-                />
-              </div>
-              <Button
-                type="submit"
-                disabled={election.status === "closed"}
-                disabledReason="This election is closed — no more contests can be added."
-              >
-                Add contest
-              </Button>
-            </form>
-          )}
         </CardContent>
       </Card>
 

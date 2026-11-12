@@ -64,6 +64,13 @@
       "when": 1793560116646,
       "tag": "0008_contest_paused",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1794494008125,
+      "tag": "0009_contest_collapsed",
+      "breakpoints": true
     }
   ]
 }

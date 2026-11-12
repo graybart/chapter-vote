@@ -149,6 +149,10 @@ export const contests = pgTable(
     // Still the "open" contest: the projector and voters' screens keep
     // following it, they just can't submit.
     paused: boolean("paused").notNull().default(false),
+    // Folded down to a one-line ribbon on the admin page, to keep a long
+    // meeting's worth of finished contests from burying the live one.
+    // Purely presentational; never affects voters or counting.
+    collapsed: boolean("collapsed").notNull().default(false),
     sortOrder: integer("sort_order").notNull().default(0),
     status: contestStatus("status").notNull().default("pending"),
     // When true (admin-controlled, off by default), voters can see the
